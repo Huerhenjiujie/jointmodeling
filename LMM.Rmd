@@ -1,0 +1,97 @@
+---
+title: "2.5 weekly report"
+author: "Hening Cui"
+date: "2/3/2023"
+output: pdf_document
+---
+
+## load library
+
+```{r, message=FALSE, results='hide', warning=FALSE}
+library(tidyverse)
+library(nlme)
+library(lme4)
+library(Seurat)
+library(Matrix); library(stringr)
+library(readr); library(here)
+library(fitdistrplus); library(dplyr); library(plyr)
+ library(monocle)
+
+library(pals)
+library(ggplot2); library(viridis)
+```
+
+
+## load data
+
+```{r}
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_normalised_scanorama3.Robj")
+```
+
+## Extract THMB4X expression data
+
+```{r}
+tmsb4x=FetchData(object=chicken.integrated,vars=c('TMSB4X','ident'))
+tmsb4x <- cbind(cell = rownames(tmsb4x), tmsb4x)
+tmsb4x$time= sub("_.*","", tmsb4x$cell)
+tmsb4x$time= as.numeric(sub(".*D","", tmsb4x$time))
+```
+
+`write_csv(tmsb4x,"/Users/cuihening/Desktop/express.csv")`
+
+\newpage
+```{r}
+LMM1 <- lme (TMSB4X ~ time +ident, random = ~1 | time,  data = tmsb4x, method='REML')
+summary (LMM1)
+```
+```{r}
+plot(LMM1)
+```
+
+
+```{r}
+plot(resid(LMM1) ~ fitted(LMM1), xlab = "Fitted values", ylab = "Residuals")
+```
+
+```{r}
+qqnorm(resid(LMM1))
+qqline(resid(LMM1))
+```
+
+
+
+## Data exploration
+
+```{r}
+tmsb4x2=FetchData(object=chicken.integrated,vars=c('TMSB4X','ident'))
+tmsb4x2 <- cbind(cell = rownames(tmsb4x2), tmsb4x2)
+tmsb4x2$time= sub("_.*","", tmsb4x2$cell)
+tmsb4x2$time= sub(".*D","", tmsb4x2$time)
+```
+
+```{r}
+LMM2 <- lme (TMSB4X ~ time + ident, random = ~1 | time,  data = tmsb4x, method='REML')
+summary (LMM2)
+```
+
+```{r}
+tmsb4x$ident=factor(tmsb4x$ident,levels=unique(tmsb4x$ident))
+```
+
+
+
+```{r}
+VarCorr(LMM1) # covariance estimates for random effects and variance for residuals
+LMM1$sigma # std for residuals
+vcov(LMM1) # covari
+random.effects(LMM1) # BLUP
+residuals(LMM1)
+```
+
+
+```{r}
+par(mfrow = c(2, 2))
+plot(LMM1)
+plot(LMM2)
+```
+

@@ -181,12 +181,12 @@ Use differential marker analysis to label clusters with cell type names
 
 ```{r}
 Idents(chicken) <- chicken$scanorama_snn_res.0.5
-chicken <- RenameIdents(chicken, `0` = "Fibroblast cells", `1` = "Cardiomyocytes-1", `2` = "Immature myocardial cells",
-                                   `3` = "Endocardial cells", `4` = "Cardiomyocytes-2", `5` = "Valve cells",
-                                   `6` = "TMSB4X high cells",
-                                   `7` = "Epi-epithelial cells", `8` = "Erythrocytes", `9` = "Vascular endothelial cells", `10` = "Erythrocytes",
-                                   `11` = "Mural cells", `12` = "Epi-mesenchymal cells", `13` = "MT-enriched cardiomyocytes", `14` = "Macrophages",
-                                   `15` = "Erythrocytes", `16` = "Dendritic cells", `17` = "unknown")
+chicken <- RenameIdents(chicken,  `0` = "Endocardial cells", `1` = "Immature myocardial cells", `2` = "Cardiomyocytes-1",
+                                   `3` = "Fibroblast cells", `4` = "Valve cells", `5` = "Cardiomyocytes-2",
+                                   `6` = "Mural cells",
+                                   `7` = "Epi-epithelial cells", `8` = "Erythrocytes", `9` = "TMSB4X high cells", `10` = "Vascular endothelial cells",
+                                   `11` = "Erythrocytes", `12` = "Epi-mesenchymal cells", `13` = "MT-enriched cardiomyocytes", `14` = "MT-enriched cardiomyocytes",
+                                   `15` = "Erythrocytes", `16` = "Macrophage", `17` = "Dendritic cells")
 DimPlot(object = chicken, reduction = "umap_scanorama", label = TRUE, label.size = 3)
 chicken$celltypes.0.5 <- Idents(chicken)
 chicken.integrated <- chicken
