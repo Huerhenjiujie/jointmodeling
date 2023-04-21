@@ -1,0 +1,165 @@
+---
+title: "1.12 report_part1"
+author: "Hening Cui"
+date: "1/12/2023"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+# Figure 1
+
+## Loading package
+```{r, warning=FALSE, message=FALSE}
+library(Seurat)
+library(ggplot2)
+library(Matrix)
+library(stringr)
+library(readr)
+library(here)
+library(fitdistrplus)
+library(dplyr)
+library(monocle)
+library(reticulate)
+```
+
+## Process data
+
+Loading H5 file and prepare gene label
+```{r}
+load(file = "/Users/cuihening/Desktop/shikun/seurat/chicken_heart-master/data/cc.genes.rda")
+mito_genes = c("ND1", "ND2", "COX1", "COII", "ATP8", "ATP6", "COX3", "ND3", "ND4L", "ND4", "ND5", "CYTB", "ND6")
+samples = c("D4", "D7_LV", "D7_RV", "D10_LV", "D10_RV", "D14_LV", "D14_RV")
+```
+
+Function to prepare data set.
+`Read10X_h5` is used to read dataset(for h5 file), `Read10X` for other file.
+```{r}
+prepare_datasets <- function(sample_name, cc.genes, mito_genes){
+  # Read data
+  data.dir = paste("/Users/cuihening/Desktop/shikun/seurat/GSE149457_RAW/chicken_heart_scRNAseq_", sample_name, "_filtered_feature_bc_matrix.h5", sep = "")
+  data <- Read10X_h5(data.dir)
+  seurat.object <- CreateSeuratObject(counts = data, min.cells = 1, min.features = 1, project = sample_name)
+  # Mitrocondria
+  seurat.object$percent.mito <- PercentageFeatureSet(object = seurat.object, features = mito_genes)
+  return(seurat.object)
+}
+```
+
+Prepare dataset
+```{r}
+day4 = prepare_datasets(samples[1], cc.genes, mito_genes)
+day7_lv = prepare_datasets(samples[2], cc.genes, mito_genes)
+day7_rv = prepare_datasets(samples[3], cc.genes, mito_genes)
+day10_lv = prepare_datasets(samples[4], cc.genes, mito_genes)
+day10_rv = prepare_datasets(samples[5], cc.genes, mito_genes)
+day14_lv = prepare_datasets(samples[6], cc.genes, mito_genes)
+day14_rv = prepare_datasets(samples[7], cc.genes, mito_genes)
+dim(day4)
+dim(day7_lv)
+dim(day7_rv)
+dim(day10_lv)
+dim(day10_rv)
+dim(day14_lv)
+dim(day14_rv)
+```
+
+Save object
+`save.image("/Users/cuihening/Desktop/shikun/seurat/robjs/all.objs.RData")`
+
+
+`load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/all.objs.RData")`
+
+Merge the dataset
+
+```{r}
+chicken = merge(day4, y = c(day7_lv, day7_rv, day10_lv, day10_rv, day14_lv, day14_rv), add.cell.ids = samples, project = "ChickenEmbryo")
+dim(chicken)
+table(chicken$orig.ident)
+```
+
+## Data visualization {.tabset}
+
+`Vlnplot`: Draws a violin plot of single cell data
+`FeatureScatter`: Creates a scatter plot of two features, across a set of single cells. Cells are colored by their identity class. Pearson correlation between the two features is displayed above the plot.
+
+### volin plot
+```{r}
+VlnPlot(object = chicken, features = c("nCount_RNA", "nFeature_RNA", "percent.mito"), pt.size = 0.01, group.by = "orig.ident")
+```
+
+### nCount vs nFeature
+```{r}
+FeatureScatter(object = chicken, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+```
+
+### nFeature vs percent.mito
+```{r}
+FeatureScatter(object = chicken, feature1 = "nFeature_RNA", feature2 = "percent.mito") + geom_hline(yintercept = 20) + geom_vline(xintercept = 200)
+```
+
+PS: delete `use.raw=TRUE`, `do.return=TRUE`.
+
+Data cleaning, filter out cells with few reads and few genes
+```{r}
+chicken <- subset(chicken, subset = nFeature_RNA >= 200 & percent.mito <= 20)
+dim(chicken)
+```
+
+Assign cell cycle score
+
+
+
+
+## Normalise, scale, and run PCA {.tabset}
+
+
+```{r}
+chicken <- NormalizeData(object = chicken, scale.factor = 1e6)
+chicken <- FindVariableFeatures(object = chicken, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+chicken <- ScaleData(object = chicken)
+dim(GetAssayData(chicken, assay = "RNA", slot = "scale.data"))
+chicken <- RunPCA(object = chicken, assay = "RNA")
+```
+
+### PCA reduction plot
+
+```{r}
+FeaturePlot(chicken, reduction = "pca", c("nCount_RNA", "nFeature_RNA"))
+```
+
+### Elbow plot
+
+Run the elbow plot to determine the significant dimensions.
+```{r}
+ElbowPlot(chicken, reduction = "pca")
+n.pcs = 20
+```
+
+## CLustering and UMAP dimesntion reduction {.tabset}
+
+```{r}
+chicken <- FindNeighbors(object = chicken, assay = "RNA", reduction = "pca", dims = 1:n.pcs, force.recalc = TRUE)
+chicken <- FindClusters(object = chicken, resolution = 0.5)
+table(Idents(chicken))
+```
+
+### RNA_snn_res.0.5
+Clustered on the RNA assay using the shared near neighbor(SNN) graph; the "0.5" bit indicates that you clustered at a resolution of 0.5
+
+```{r }
+chicken <- RunUMAP(object = chicken, assay = "RNA", reduction = "pca", dims = 1:n.pcs)
+DimPlot(chicken, reduction = "umap", label = TRUE, group.by = "RNA_snn_res.0.5")
+```
+
+### orig.ident
+
+```{r}
+DimPlot(chicken, reduction = "umap", group.by = "orig.ident")
+```
+
+## Save object
+
+`save(chicken, file="/Users/cuihening/Desktop/robjs/chicken_raw.Robj")`
+
+

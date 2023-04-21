@@ -1,0 +1,318 @@
+---
+title: "1.29PART3"
+author: "Hening Cui"
+date: "1/26/2023"
+output: html_document
+---
+
+
+```{r}
+library(Seurat)
+library(Matrix); library(stringr)
+library(readr); library(here)
+library(fitdistrplus); library(dplyr)
+```
+
+
+```{r}
+library(SeuratData); library(ggplot2)
+library(cowplot); library(reticulate)
+library(pals); library(monocle)
+library(circlize)
+```
+
+
+```{r}
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.prediction.1.Robj")
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_normalised_scanorama3.Robj")
+load(file = "/Users/cuihening/Desktop/shikun/seurat/robjs/anchors_and_prediction_assay.RData")
+```
+
+
+
+# saves cell ids for visium samples
+```{r}
+table(chicken_visium$orig.ident)
+colnames(chicken_visium)
+Images(chicken_visium)
+sample_cell_id_map <- data.frame(sample = chicken_visium$orig.ident, cell_id = str_split_fixed(colnames(chicken_visium), "_", 2)[,2])
+head(sample_cell_id_map)
+```
+
+
+
+`save(sample_cell_id_map, file="/Users/cuihening/Desktop/shikun/seurat/robjs/sample_cell_id_map.Robj")`
+
+# calculates the cell spot similarity map
+
+## Transfer cellnames from scRNAseq to spatial using the anchor based approach to get a cell spot similairy map
+
+```{r}
+chicken.integrated$cellname <- colnames(chicken.integrated)
+predictions.assay <- TransferData(anchorset = anchors, refdata = chicken.integrated$cellname, prediction.assay = TRUE, 
+                                  weight.reduction = chicken_visium[["pca"]],
+                                  dims = 1:17)
+
+```
+
+##Adding cellname predictions to original seurat object
+```{r}
+chicken_visium[["predictions_cells"]] <- predictions.assay
+dim(GetAssayData(chicken_visium, assay = "predictions_cells"))
+```
+
+
+`save(chicken_visium, file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.prediction.1.Robj")`
+
+# Final output
+
+```{r}
+load("/Users/cuihening/Desktop/shikun/seurat/robjs/all.visiums.4.RData")
+```
+
+
+
+day14_visium <- NormalizeData(day14_visium) %>% FindVariableFeatures() %>% ScaleData()  %>% RunPCA()
+
+
+day14_visium <- FindSpatiallyVariableFeatures(day14_visium, assay = "Spatial", features = VariableFeatures(day14_visium)[1:2000], 
+                                              selection.method = "markvariogram", verbose = T)
+
+
+
+day10_visium <- NormalizeData(day10_visium) %>% FindVariableFeatures() %>% ScaleData()  %>% RunPCA()
+day10_visium <- FindSpatiallyVariableFeatures(day10_visium, assay = "Spatial", features = VariableFeatures(day10_visium)[1:2000], 
+                                              selection.method = "markvariogram", verbose = T)
+
+
+
+
+day7_visium <- NormalizeData(day7_visium) %>% FindVariableFeatures() %>% ScaleData()  %>% RunPCA()
+day7_visium <- FindSpatiallyVariableFeatures(day7_visium, assay = "Spatial", features = VariableFeatures(day7_visium)[1:2000], 
+                                              selection.method = "markvariogram", verbose = T)
+
+
+
+
+
+day4_visium <- NormalizeData(day4_visium) %>% FindVariableFeatures() %>% ScaleData()  %>% RunPCA()
+day4_visium <- FindSpatiallyVariableFeatures(day4_visium, assay = "Spatial", features = VariableFeatures(day4_visium)[1:2000], 
+                                             selection.method = "markvariogram", verbose = T)
+
+
+`save(day4_visium, day7_visium, day10_visium, day14_visium, file = "/Users/cuihening/Desktop/shikun/seurat/robjs/all.visiums.4.solo.Robj")`
+
+```{r}
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/all.visiums.4.solo.Robj")
+```
+
+## visualization
+
+```{r}
+day14_visium <- FindNeighbors(object = day14_visium, dims=1:20, force.recalc = TRUE)
+day14_visium <- FindClusters(object = day14_visium, resolution=0.6)
+SpatialDimPlot(day14_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+day14_visium <- RenameIdents(day14_visium, "0" = "Compact LV and \ninter-ventricular septum", "2" = "Right ventricle", 
+                             "4" = "Trabecular LV and \nendocardium", "1" = "Atria", "5" = "Epicardium", "3" = "Valves")
+day14_visium$region <- Idents(day14_visium)
+```
+
+
+```{r}
+day10_visium <- FindNeighbors(object = day10_visium, dims=1:20, force.recalc = TRUE)
+day10_visium <- FindClusters(object = day10_visium, resolution=0.5)
+SpatialDimPlot(day10_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+day10_visium <- RenameIdents(day10_visium, "0" = "Compact LV and \ninter-ventricular septum", "3" = "Right ventricle", 
+                             "1" = "Atria", "5" = "Epicardium", "4" = "Valves",
+                             "2" = 'Trabecular LV and \nendocardium', "6" = "Outflow tract")
+day10_visium$region <- Idents(day10_visium)
+
+```
+
+```{r}
+day7_visium <- FindNeighbors(object = day7_visium, dims=1:20, force.recalc = TRUE)
+day7_visium <- FindClusters(object = day7_visium, resolution=0.6)
+SpatialDimPlot(day7_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+day7_visium <- RenameIdents(day7_visium, "0" = "Compact LV and \ninter-ventricular septum", "1" = "Trabecular LV and \nendocardium", "5" = "Right ventricle", "3" = "Endothelium", "2" = "Atria", "4" = "Epicardium", "6" = "Valves")
+day7_visium$region <- Idents(day7_visium)
+```
+
+```{r}
+day4_visium <- FindNeighbors(object = day4_visium, dims=1:20, force.recalc = TRUE)
+day4_visium <- FindClusters(object = day4_visium, resolution=0.5)
+SpatialDimPlot(day4_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+# SpatialDimPlot(day4_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian() + geom_vline(xintercept = 200) + geom_vline(xintercept = 260) + 
+#   geom_vline(xintercept = 325) + geom_vline(xintercept = 400) +  geom_vline(xintercept = 470) 
+day4_visium <- RenameIdents(day4_visium, "0" = "Ventricle", "1" = "Epicardium- like", 
+                            "2" = "Outflow tract", "4" = "Atria", "3" = "Valves")
+day4_visium$region <- Idents(day4_visium)
+```
+
+`save(day4_visium, day7_visium, day10_visium, day14_visium, file = "/Users/cuihening/Desktop/shikun/seurat/robjs/all.visiums.4.solo1.Robj")`
+
+```{r}
+chicken_visium$region <- NA
+chicken_visium$region[paste("D4-A1", colnames(day4_visium), sep = "_")] <- as.character(day4_visium$region)
+chicken_visium$region[paste("D7-B1", colnames(day7_visium), sep = "_")] <- as.character(day7_visium$region)
+chicken_visium$region[paste("D10-C1", colnames(day10_visium), sep = "_")] <- as.character(day10_visium$region)
+chicken_visium$region[paste("D14-D1", colnames(day14_visium), sep = "_")] <- as.character(day14_visium$region)
+table(chicken_visium$region)
+```
+
+
+`save(chicken_visium, file = "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.prediction.1.Robj")`
+
+# find differnetial genes expressed in anatomical regions 
+
+```{r}
+SpatialFeaturePlot(day4_visium, features ="TMSB4X", ncol = 3, alpha = c(0.1, 1))
+```
+
+
+```{r}
+SpatialDimPlot(day4_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+day4_spatial_markers <- FindAllMarkers(day4_visium, assay = "Spatial", only.pos = T)
+day4_spatial_markers <- subset(day4_spatial_markers[!(rownames(day4_spatial_markers) %in% grep("^ENSGAL", x = rownames(day4_spatial_markers), value = TRUE)),])
+markers.top20 = day4_spatial_markers %>% group_by(cluster) %>% top_n(20, avg_log2FC)
+markers.top10 = day4_spatial_markers %>% group_by(cluster) %>% top_n(10, avg_log2FC)
+markers.top5 = day4_spatial_markers %>% group_by(cluster) %>% top_n(5, avg_log2FC)
+DoHeatmap(day4_visium, markers.top10$gene)
+```
+```{r}
+SpatialFeaturePlot(day7_visium, features ="TMSB4X", ncol = 3, alpha = c(0.1, 1))
+```
+
+```{r}
+SpatialDimPlot(day7_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+day7_spatial_markers <- FindAllMarkers(day7_visium, assay = "Spatial",  only.pos = T, min.pct = 0.3, logfc.threshold = 0.5)
+day7_spatial_markers <- subset(day7_spatial_markers[!(rownames(day7_spatial_markers) %in% grep("^ENSGAL", x = rownames(day7_spatial_markers), value = TRUE)),])
+markers.top20 = day7_spatial_markers %>% group_by(cluster) %>% top_n(20, avg_log2FC)
+markers.top10 = day7_spatial_markers %>% group_by(cluster) %>% top_n(10, avg_log2FC)
+markers.top5 = day7_spatial_markers %>% group_by(cluster) %>% top_n(5, avg_log2FC)
+DoHeatmap(day7_visium, markers.top10$gene)
+```
+```{r}
+SpatialFeaturePlot(day10_visium, features ="TMSB4X", ncol = 3, alpha = c(0.1, 1))
+```
+
+```{r}
+SpatialDimPlot(day10_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+```
+
+
+```{r}
+day10_spatial_markers <- FindAllMarkers(day10_visium, assay = "Spatial", only.pos = T)
+day10_spatial_markers <- subset(day10_spatial_markers[!(rownames(day10_spatial_markers) %in% grep("^ENSGAL", x = rownames(day10_spatial_markers), value = TRUE)),])
+markers.top20 = day10_spatial_markers %>% group_by(cluster) %>% top_n(20, avg_log2FC)
+markers.top10 = day10_spatial_markers %>% group_by(cluster) %>% top_n(10, avg_log2FC)
+markers.top5 = day10_spatial_markers %>% group_by(cluster) %>% top_n(5, avg_log2FC)
+DoHeatmap(day10_visium, markers.top10$gene)
+```
+
+```{r}
+SpatialDimPlot(day14_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
+day14_spatial_markers <- FindAllMarkers(day14_visium, assay = "Spatial", only.pos = T)
+day14_spatial_markers <- subset(day14_spatial_markers[!(rownames(day14_spatial_markers) %in% grep("^ENSGAL", x = rownames(day14_spatial_markers), value = TRUE)),])
+markers.top20 = day14_spatial_markers %>% group_by(cluster) %>% top_n(20, avg_log2FC)
+markers.top10 = day14_spatial_markers %>% group_by(cluster) %>% top_n(10, avg_log2FC)
+markers.top5 = day14_spatial_markers %>% group_by(cluster) %>% top_n(5, avg_log2FC)
+DoHeatmap(day10_visium, markers.top10$gene)
+```
+
+
+# Dotplots for anatomical regions' DGE
+```{r}
+pdf(file="/Users/cuihening/Desktop/D4_dotplot.pdf",
+    width=5, height=6, paper="special", bg="white",
+    fonts="Helvetica", colormodel = "rgb", pointsize=5, useDingbats = F)
+DotPlot(day4_visium, features = unique(markers.top5$gene), cols = c("lightgray", "brown"), scale.by = "size", dot.scale = 1.7, dot.min = 0.01) + 
+  scale_color_gradient(low = "lightgray", high = "brown", trans = "exp") + theme_bw() + 
+  theme(plot.background=element_blank(),
+        panel.grid = element_line(size = 0.1),
+        legend.position = "bottom",
+        legend.title = element_text(colour = "black", size = 7, family = "Helvetica"), 
+        legend.text = element_text(colour = "black", size = 6, family = "Helvetica"),
+        legend.spacing = unit(0, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.box.margin=margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        axis.title=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(colour = "black", size = 5, angle = 60, hjust  = 1.0, vjust = 1.0), #element_text(colour = "black", size = 6, family = "Helvetica", angle = 30, color = rev(colors_used), vjust = 1, hjust = 1), 
+        axis.text.y = element_text(colour = "black", size = 5, family = "Helvetica"),
+        plot.title=element_blank()) +  
+  coord_flip()
+dev.off()
+```
+
+```{r}
+pdf(file="/Users/cuihening/Desktop/D7_dotplot.pdf",
+    width=5, height=6, paper="special", bg="white",
+    fonts="Helvetica", colormodel = "rgb", pointsize=5, useDingbats = F)
+DotPlot(day7_visium, features = unique(markers.top5$gene), cols = c("lightgray", "brown"), scale.by = "size", dot.scale = 1.7, dot.min = 0.01) + 
+  scale_color_gradient(low = "lightgray", high = "brown", trans = "exp") + theme_bw() + 
+  theme(plot.background=element_blank(),
+        panel.grid = element_line(size = 0.1),
+        legend.position = "bottom",
+        legend.title = element_text(colour = "black", size = 7, family = "Helvetica"), 
+        legend.text = element_text(colour = "black", size = 6, family = "Helvetica"),
+        legend.spacing = unit(0, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.box.margin=margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        axis.title=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(colour = "black", size = 5, angle = 60, hjust  = 1.0, vjust = 1.0), #element_text(colour = "black", size = 6, family = "Helvetica", angle = 30, color = rev(colors_used), vjust = 1, hjust = 1), 
+        axis.text.y = element_text(colour = "black", size = 5, family = "Helvetica"),
+        plot.title=element_blank()) +  
+  coord_flip()
+dev.off()
+```
+
+```{r}
+pdf(file="/Users/cuihening/Desktop/D10_dotplot.pdf",
+    width=5, height=6, paper="special", bg="white",
+    fonts="Helvetica", colormodel = "rgb", pointsize=5, useDingbats = F)
+DotPlot(day10_visium, features = unique(markers.top5$gene), cols = c("lightgray", "brown"), scale.by = "size", dot.scale = 1.7, dot.min = 0.01) + 
+  scale_color_gradient(low = "lightgray", high = "brown", trans = "exp") + theme_bw() + 
+  theme(plot.background=element_blank(),
+        panel.grid = element_line(size = 0.1),
+        legend.position = "bottom",
+        legend.title = element_text(colour = "black", size = 7, family = "Helvetica"), 
+        legend.text = element_text(colour = "black", size = 6, family = "Helvetica"),
+        legend.spacing = unit(0, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.box.margin=margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        axis.title=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(colour = "black", size = 5, angle = 60, hjust  = 1.0, vjust = 1.0), #element_text(colour = "black", size = 6, family = "Helvetica", angle = 30, color = rev(colors_used), vjust = 1, hjust = 1), 
+        axis.text.y = element_text(colour = "black", size = 5, family = "Helvetica"),
+        plot.title=element_blank()) +  
+  coord_flip()
+dev.off()
+```
+
+```{r}
+pdf(file="/Users/cuihening/Desktop/D14_dotplot.pdf",
+    width=5, height=6, paper="special", bg="white",
+    fonts="Helvetica", colormodel = "rgb", pointsize=5, useDingbats = F)
+DotPlot(day14_visium, features = unique(markers.top5$gene), cols = c("lightgray", "brown"), scale.by = "size", dot.scale = 1.7, dot.min = 0.01) + 
+  scale_color_gradient(low = "lightgray", high = "brown", trans = "exp") + theme_bw() + 
+  theme(plot.background=element_blank(),
+        panel.grid = element_line(size = 0.1),
+        legend.position = "bottom",
+        legend.title = element_text(colour = "black", size = 7, family = "Helvetica"), 
+        legend.text = element_text(colour = "black", size = 6, family = "Helvetica"),
+        legend.spacing = unit(0, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.box.margin=margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        axis.title=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.x = element_text(colour = "black", size = 5, angle = 60, hjust  = 1.0, vjust = 1.0), #element_text(colour = "black", size = 6, family = "Helvetica", angle = 30, color = rev(colors_used), vjust = 1, hjust = 1), 
+        axis.text.y = element_text(colour = "black", size = 5, family = "Helvetica"),
+        plot.title=element_blank()) +  
+  coord_flip()
+dev.off()
+```

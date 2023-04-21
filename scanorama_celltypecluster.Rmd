@@ -1,0 +1,238 @@
+---
+title: "1.12report_part2_scanorama"
+author: "Hening Cui"
+date: "1/12/2023"
+output: 
+  html_document:
+      code_folding: hide
+---
+
+Scanorama is designed to be used in scRNA-seq pipelines downstream of noise-reduction methods, including those for imputation and highly-variable gene filtering. The results from Scanorama integration and batch correction can then be used as input to other tools for scRNA-seq clustering, visualization, and analysis.
+
+## Load package
+```{r, warning=FALSE, message=FALSE}
+library(Seurat)
+library(Matrix)
+library(stringr)
+library(readr)
+library(here)
+library(fitdistrplus)
+library(dplyr)
+library(monocle)
+library(reticulate)
+library(pals)
+```
+
+## Load data
+```{r}
+load(file = "/Users/cuihening/Downloads/chicken_heart-master/data/cc.genes.rda")
+samples = c("D4", "D7_LV", "D7_RV", "D10_LV", "D10_RV", "D14_LV", "D14_RV")
+load("//Users/cuihening/Desktop/shikun/seurat/robjs/chicken_raw.Robj")
+```
+
+```{r}
+dim(chicken)
+table(chicken$orig.ident)
+DefaultAssay(chicken)
+```
+
+## Extract expression values for individual datasets function
+
+`GetAssayData`: General accessor and setter functions for Assay objects. GetAssayData can be used to pull information from any of the expression matrices (eg. “counts”, “data”, or “scale.data”).
+
+```{r}
+extractRNA_chicken <- function(seurat.object, sample_name){
+  return(t(as.matrix(GetAssayData(seurat.object)))[colnames(seurat.object)[seurat.object$orig.ident == sample_name],])
+}
+```
+
+## Prepare data
+```{r, warning=FALSE}
+data = list(extractRNA_chicken(chicken, samples[1]), extractRNA_chicken(chicken, samples[2]), extractRNA_chicken(chicken, samples[3]), extractRNA_chicken(chicken, samples[4]), extractRNA_chicken(chicken, samples[5]), extractRNA_chicken(chicken, samples[6]), extractRNA_chicken(chicken, samples[7]))
+gene_list = list(rownames(chicken), rownames(chicken), rownames(chicken), rownames(chicken), rownames(chicken), rownames(chicken), rownames(chicken))
+```
+
+## Import scanorama
+I got multiple problem when I trying to set up the environment of scanorama. The default r-miniconda python does not works for me when calling the scanorama.I finally solved with `use_python()` methon to set python path to the anaconda environment.
+```{r}
+path_to_python = '/Users/cuihening/opt/anaconda3/envs/r-reticulate/bin/python'
+use_python(path_to_python)
+scanorama = import_from_path('scanorama')
+```
+
+## Integrate dataset
+
+`correct()` setting all latent factor to median and reversing the regression model.
+Reverse regression model:
+a reverse regression approach to randomized clinical trials, with focus on the dependence of treatment assignment on the clinical outcomes of interest. A reverse regression model is essentially a semiparametric density ratio model for the outcome distributions in the two treatment groups.
+{r} [link] (https://www3.stat.sinica.edu.tw/sstest/oldpdf/A24n414.pdf)
+
+```{r}
+integrated.corrected.data = scanorama$correct(data, gene_list, return_dimred=TRUE, return_dense=TRUE, ds_names = samples, verbose = TRUE)
+```
+
+
+`save(integrated.corrected.data,file="/Users/cuihening/Desktop/shikun/seurat/robjs/corrected_norm_scano.Robj")`
+
+
+
+
+Created integrate array from integrated data.
+
+```{r}
+corrected_scanorama <- t(do.call(rbind, integrated.corrected.data[[2]]))
+colnames(corrected_scanorama) <- colnames(chicken)
+rownames(corrected_scanorama) <- integrated.corrected.data[[3]]
+dim(corrected_scanorama)
+corrected_scanorama_pca <- t(do.call(rbind, integrated.corrected.data[[1]]))
+colnames(corrected_scanorama_pca) <- colnames(chicken)
+dim(corrected_scanorama_pca)
+```
+
+## Data analysis
+
+Create assay from integrated values and save to seurat object
+
+```{r}
+scanorama_assay <- CreateAssayObject(data = corrected_scanorama)
+chicken[["scanorama"]] <- scanorama_assay
+DefaultAssay(chicken) <- "scanorama"
+```
+
+
+Preprocess scanorama values and perform PCA
+`FindVaribaleFeatures`:Identifies features that are outliers on a 'mean variability plot
+
+PS: I encounter the memory limit issue in R and here is the solution
+library(usethis) 
+usethis::edit_r_environ()
+R_MAX_VSIZE=100Gb
+then restart R
+
+```{r, warning=FALSE}
+DefaultAssay(chicken)
+chicken <- FindVariableFeatures(chicken, assay = "scanorama", selection.method = "vst")
+chicken <- ScaleData(chicken)
+chicken <- RunPCA(object = chicken, assay = "scanorama", verbose = F, reduction.name = "pca_scanorama")
+```
+
+Clustering and UMAP reduction on scanorama values
+
+```{r}
+chicken <- FindNeighbors(object=chicken, assay = "scanorama", reduction = "pca_scanorama", dims = 1:20, k.param = 30, force.recalc = TRUE)
+chicken <- FindClusters(object=chicken, resolution=0.5)
+table(chicken$scanorama_snn_res.0.5)
+```
+
+```{r}
+chicken <- RunUMAP(object = chicken, assay = "scanorama", reduction = "pca_scanorama", dims = 1:20, reduction.name = "umap_scanorama", metric = "correlation")
+```
+## UMAP visualization {.tabset}
+
+### scanorama_snn_res.0.5
+
+
+
+
+```{r}
+Idents(chicken) <- chicken$scanorama_snn_res.0.5
+chicken <- RenameIdents(chicken, `0` = "Endocardial cells", `1` = "Immature myocardial cells", `2` = "Cardiomyocytes-1",
+                                   `3` = "Fibroblast cells", `4` = "Valve cells", `5` = "Cardiomyocytes-2",
+                                   `6` = "Mural cells",
+                                   `7` = "Epi-epithelial cells", `8` = "Erythrocytes", `9` = "TMSB4X high cells", `10` = "Vascular endothelial cells",
+                                   `11` = "Erythrocytes", `12` = "Epi-mesenchymal cells", `13` = "MT-enriched cardiomyocytes", `14` = "MT-enriched cardiomyocytes",
+                                   `15` = "Erythrocytes", `16` = "Macrophage", `17` = "Dendritic cells")
+DimPlot(object = chicken, reduction = "umap_scanorama", label = TRUE, label.size = 3)
+DimPlot(chicken, reduction = "umap_scanorama", label = TRUE, group.by = "scanorama_snn_res.0.5")
+```
+
+### orig.ident
+
+```{r}
+DimPlot(chicken, reduction = "umap_scanorama", group.by = "orig.ident")
+```
+
+
+`save(chicken, file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_normalised_scanorama2.Robj")`
+
+
+
+## Marker analysis
+
+` FindALLMarkers`:Finds markers (differentially expressed genes) for each of the identity classes in a dataset
+
+```{r}
+DefaultAssay(object = chicken) <- "RNA"
+markers.all = FindAllMarkers(chicken, assay = "RNA", do.print = TRUE, logfc.threshold = 0.5, return.thresh = 0.1, min.pct = 0.5, only.pos = TRUE)
+```
+
+I changed original avg_logFC into avg_log2FC, since the avg_logFC is not defined in the function.
+
+```{r}
+markers.top10 = markers.all %>% group_by(cluster) %>% top_n(10, avg_log2FC)
+markers.top20 = markers.all %>% group_by(cluster) %>% top_n(20, avg_log2FC)
+write.csv(markers.all, "/Users/cuihening/Desktop/shikun/seurat/csv/markers.all.clusters.csv")
+```
+
+Use differential marker analysis to label clusters with cell type names
+
+
+
+
+```{r}
+Idents(chicken) <- chicken$scanorama_snn_res.0.5
+chicken <- RenameIdents(chicken, `0` = "Fibroblast cells", `1` = "Cardiomyocytes-1", `2` = "Immature myocardial cells",
+                                   `3` = "Endocardial cells", `4` = "Cardiomyocytes-2", `5` = "Valve cells",
+                                   `6` = "TMSB4X high cells",
+                                   `7` = "Epi-epithelial cells", `8` = "Erythrocytes", `9` = "Vascular endothelial cells", `10` = "Erythrocytes",
+                                   `11` = "Mural cells", `12` = "Epi-mesenchymal cells", `13` = "MT-enriched cardiomyocytes", `14` = "Macrophages",
+                                   `15` = "Erythrocytes", `16` = "Dendritic cells", `17` = "unknown")
+DimPlot(object = chicken, reduction = "umap_scanorama", label = TRUE, label.size = 3)
+chicken$celltypes.0.5 <- Idents(chicken)
+chicken.integrated <- chicken
+```
+
+`0` = "Fibroblast cells", `1` = "Fibroblast cells", `2` = "Immature myocardial cells",
+                                   `3` = "Endocardial cells", `4` = "Cardiomyocytes-2", `5` = "Valve cells",
+                                   `6` = "TMSB4X high cells",
+                                   `7` = "Epi-epithelial cells", `8` = "Erythrocytes", `9` = "Vascular endothelial cells", `10` = "Erythrocytes",
+                                   `11` = "Mural cells", `12` = "Epi-mesenchymal cells", `13` = "MT-enriched cardiomyocytes", `14` = "Macrophages",
+                                   `15` = "Erythrocytes", `16` = "Dendritic cells", `17` = "unknown")`
+
+
+
+
+`save(chicken.integrated, file= "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_normalised_scanorama3.Robj")`
+
+
+```{r}
+markers.all <- read.csv(file = "/Users/cuihening/Desktop/shikun/seurat/csv/markers.all.clusters.csv", row.names = 1)
+markers.all <- subset(markers.all[!(rownames(markers.all) %in% grep("^ENSGAL", x = rownames(markers.all), value = TRUE)),])
+markers.top5 = markers.all %>% group_by(cluster) %>% top_n(5, avg_log2FC)
+levels(markers.top5$cluster) == levels(chicken.integrated$celltypes.0.5)
+pdf(file="allClustersDotplot.pdf",
+    width= 6.7, height=2.5, paper="special", bg="transparent",
+    fonts="Helvetica", colormodel = "rgb", pointsize=5, useDingbats = F)
+DotPlot(chicken.integrated, features = unique(markers.top5$gene), cols = c("lightgray", "brown"), scale.by = "size", dot.scale = 2.0, dot.min = 0.01) + # scale_colour_viridis_c(direction = -1)+
+  theme_bw() + scale_color_gradient(low = "lightgray", high = "brown", trans = "exp") + 
+  theme(plot.background=element_blank(),
+        panel.grid = element_line(size = 0.1),
+        legend.position = "bottom",
+        legend.title = element_text(colour = "black", size = 7, family = "Helvetica"), 
+        legend.text = element_text(colour = "black", size = 6, family = "Helvetica"),
+        legend.spacing = unit(0, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        legend.box.margin=margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        plot.margin = margin(t = 0, r = 0, b = 0, l = 0, unit = "pt"),
+        axis.title=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y = element_text(colour = "black", size = 6, family = "Helvetica", angle = 0, color = rev(as.vector(kelly())[3:(2+length(levels(markers.top5$cluster)))])), # element_blank(), # 
+        axis.text.x = element_text(colour = "black", size = 5.0, family = "Helvetica", angle = 45, vjust = 1, hjust = 1),
+        plot.title=element_blank())
+dev.off()
+```
+
+
+
+
+

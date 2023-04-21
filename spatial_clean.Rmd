@@ -1,0 +1,229 @@
+---
+title: "spatial longtitude"
+author: "Hening Cui"
+date: "1/26/2023"
+output: 
+  html_document:
+    code_folding: hide
+---
+# Spatial data integrate
+
+## load data
+
+```{r}
+library(Seurat)
+library(Matrix); library(stringr)
+library(readr); library(here)
+library(fitdistrplus); library(dplyr)
+library(SeuratData); library(ggplot2)
+library(cowplot); library(reticulate)
+library(pals); library(monocle)
+```
+
+```{r}
+load(file = "/Users/cuihening/Desktop/shikun/seurat/chicken_heart-master/data/cc.genes.rda")
+mito_genes = c("ND1", "ND2", "COX1", "COII", "ATP8", "ATP6", "COX3", "ND3", "ND4L", "ND4", "ND5", "CYTB", "ND6")
+```
+
+This part is really complicated. It need to recollate the files before you load it. 
+For `Load10X_Spatial`, it requires you a file dir(where your h5 file in), under the dir, the h5 should benamed as: filtered_feature_bc_matrix.h5. In the dir, it should also contains a folder called: spatial, under spatial, there should be three files: scalefactors_json.json, tissue_positions_list.csv, tissue_lowres_image.png. The name convention should be followed strictly, or else, it could not be read in.
+
+```{r}
+prepare_datasets <- function(sample_name, cc.genes, mito_genes){
+  # Read data
+  data.dir = paste("/Users/cuihening/Desktop/spatial_data/", sample_name, sep = "")
+  seurat.object <- Load10X_Spatial(data.dir)
+  seurat.object$orig.ident <- sample_name
+  seurat.object@project.name <- sample_name
+  seurat.object <- PercentageFeatureSet(object = seurat.object, features = mito_genes, col.name = "percent.mito");
+  return(seurat.object)
+}
+```
+
+
+```{r}
+day4_visium <- prepare_datasets("D4", cc.genes, mito_genes)
+day7_visium <- prepare_datasets("D7", cc.genes, mito_genes)
+day10_visium <- prepare_datasets("D10", cc.genes, mito_genes)
+day14_visium <- prepare_datasets("D14", cc.genes, mito_genes)
+```
+
+
+save.image("/Users/cuihening/Desktop/shikun/seurat/robjs/all.visiums.4.RData")
+
+## integrate spatial data
+
+```{r}
+chicken_visium <- merge(day4_visium, y = c(day7_visium, day10_visium, day14_visium), add.cell.ids = c("D4-A1", "D7-B1", "D10-C1", "D14-D1"))
+```
+
+## Preprocessing of spatial RNAseq data
+```{r}
+chicken_visium <- NormalizeData(chicken_visium) %>% FindVariableFeatures() %>% ScaleData()
+dim(chicken_visium)
+DefaultAssay(chicken_visium)
+```
+
+## Run PCA on spatial RNAseq data
+
+```{r}
+chicken_visium <- RunPCA(object = chicken_visium)
+ElbowPlot(chicken_visium)
+```
+
+## Run clustering and UMP reduction of spatial RNAseq data {.tabset}
+
+### Spatial snn
+
+```{r}
+chicken_visium <- FindNeighbors(object = chicken_visium, dims=1:20, force.recalc = TRUE)
+chicken_visium <- FindClusters(object = chicken_visium, resolution=1.0)
+chicken_visium <- RunUMAP(object = chicken_visium, dims = 1:20)
+DimPlot(chicken_visium, reduction = "umap", group.by = "Spatial_snn_res.1", label = TRUE)
+```
+
+### origin ident
+```{r}
+DimPlot(chicken_visium, reduction = "umap", group.by = "orig.ident")
+```
+
+`save(chicken_visium, file = "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")`
+
+# Run scanorama on spatial data
+
+## Prepare dataset
+```{r}
+extractRNA_chicken <- function(seurat.object, sample_name, assay = "Spatial"){
+  return(t(as.matrix(GetAssayData(seurat.object, assay = assay)))[colnames(seurat.object)[seurat.object$orig.ident == sample_name],])
+}
+```
+
+```{r}
+samples = unique(chicken_visium$orig.ident)
+data = list(extractRNA_chicken(chicken_visium, samples[[1]]), extractRNA_chicken(chicken_visium, samples[[2]]), 
+            extractRNA_chicken(chicken_visium, samples[[3]]), extractRNA_chicken(chicken_visium, samples[[4]]))
+gene_list = list(rownames(chicken_visium), rownames(chicken_visium), rownames(chicken_visium), rownames(chicken_visium))
+```
+
+## Intregration starts here
+```{r}
+path_to_python = '/Users/cuihening/opt/anaconda3/envs/r-reticulate/bin/python'
+use_python(path_to_python)
+scanorama = import_from_path('scanorama')
+integrated.corrected.data = scanorama$correct(data, gene_list, return_dimred=TRUE, return_dense=TRUE, ds_names = samples, verbose = TRUE)
+```
+
+
+`save(integrated.corrected.data, file="/Users/cuihening/Desktop/shikun/seurat/robjs/corrected_Spatial_norm_scano.4.Robj")`
+
+```{r}
+corrected_scanorama <- t(do.call(rbind, integrated.corrected.data[[2]]))
+colnames(corrected_scanorama) <- colnames(chicken_visium)
+rownames(corrected_scanorama) <- integrated.corrected.data[[3]]
+dim(corrected_scanorama)
+corrected_scanorama_pca <- t(do.call(rbind, integrated.corrected.data[[1]]))
+colnames(corrected_scanorama_pca) <- colnames(chicken_visium)
+dim(corrected_scanorama_pca)
+```
+
+## Create assay from integrated values and save to seurat object
+```{r}
+scanorama_assay <- CreateAssayObject(data = corrected_scanorama)
+chicken_visium[["scanorama"]] <- scanorama_assay
+DefaultAssay(chicken_visium) <- "scanorama"
+```
+
+## Preprocess scanorama values and perform PCA
+```{r}
+chicken_visium <- FindVariableFeatures(chicken_visium, assay = "scanorama", selection.method = "vst")
+chicken_visium <- ScaleData(chicken_visium)
+chicken_visium <- RunPCA(object = chicken_visium, assay = "scanorama", reduction.name = "pca_scanorama")
+```
+
+## Clustering and UMAP reduction on scanorama values
+
+```{r}
+chicken_visium <- FindNeighbors(object=chicken_visium,dims=1:20, reduction = "pca_scanorama", force.recalc = TRUE, graph.name = "scanorama_snn")
+chicken_visium <- FindClusters(object=chicken_visium,graph.name = "scanorama_snn", resolution=1.0)
+chicken_visium <- RunUMAP(object = chicken_visium, reduction = "pca_scanorama", dims = 1:20, reduction.name = "umap_scanorama")
+
+```
+```{r}
+DimPlot(chicken_visium, reduction = "umap_scanorama", group.by = "scanorama_snn_res.1", label = TRUE)
+DimPlot(chicken_visium, reduction = "umap_scanorama", group.by = "orig.ident")
+```
+
+`save(chicken_visium, file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")`
+
+# Anchor integreation
+
+## load data
+
+
+```{r}
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_normalised_scanorama3.Robj")
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")
+```
+
+```{r}
+DefaultAssay(chicken.integrated) <- "RNA"
+DefaultAssay(chicken_visium) <- "Spatial"
+```
+
+## Find gene anchors between scRNAseq and spatila RNAseq datasets
+
+use cca reduction-need explore
+
+```{r}
+anchors <- FindTransferAnchors(reference = chicken.integrated, query = chicken_visium, reduction = "cca")
+```
+
+```{r}
+chicken.integrated$cellname <- colnames(chicken.integrated)
+table(chicken.integrated$celltypes.0.5)
+```
+
+## Transfer labels from scRNAseq to spatial using the anchor based approach
+```{r}
+predictions.assay <- TransferData(anchorset = anchors, refdata = chicken.integrated$celltypes.0.5, 
+                                  prediction.assay = TRUE, 
+                                  weight.reduction = chicken_visium[["pca"]],
+                                  dims=1:20)
+```
+
+
+`save(anchors, predictions.assay, file = "/Users/cuihening/Desktop/shikun/seurat/robjs/anchors_and_prediction_assay.RData")`
+
+## Adding cell type predictions to original seurat object
+```{r}
+chicken_visium[["predictions"]] <- predictions.assay
+dim(GetAssayData(chicken_visium, assay = "predictions"))
+```
+
+## Adding cell type predictions in meta data as well
+```{r}
+chicken_visium <- AddMetaData(chicken_visium, metadata = as.data.frame(t(GetAssayData(chicken_visium, assay = "predictions"))))
+head(chicken_visium@meta.data)
+```
+
+## Define cell type with maximum prediction score as spot type 
+
+```{r}
+prediction.scores <- as.data.frame(t(GetAssayData(chicken_visium, assay = "predictions")))
+prediction.scores$max <- NULL
+sum(is.na(prediction.scores))
+prediction.scores$celltype_prediction <- NA
+dim(prediction.scores)
+for(i in 1:nrow(prediction.scores)){
+  prediction.scores$celltype_prediction[i] <- colnames(prediction.scores)[prediction.scores[i,1:15] == max(prediction.scores[i,1:15])]
+}
+```
+
+```{r}
+table(prediction.scores$celltype_prediction)
+chicken_visium$celltype_prediction <- prediction.scores$celltype_prediction
+```
+
+
+`save(chicken_visium, file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.prediction.1.Robj")`
+

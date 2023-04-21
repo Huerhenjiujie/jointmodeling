@@ -1,0 +1,74 @@
+---
+title: "1.29 part2"
+author: "Hening Cui"
+date: "1/26/2023"
+output: html_document
+---
+
+```{r}
+library(Seurat)
+library(Matrix); library(stringr)
+library(readr); library(here)
+library(fitdistrplus); library(dplyr)
+library(SeuratData); library(ggplot2)
+library(cowplot); library(reticulate)
+library(pals); library(monocle)
+library(circlize)
+```
+
+
+```{r}
+load(file="/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.prediction.1.Robj")
+```
+
+# Generate celltype pair neighborhood maps
+## D4
+
+```{r}
+prediction.scores <- as.data.frame(t(GetAssayData(chicken_visium, assay = "predictions")))
+prediction.scores$max <- NULL
+dim(prediction.scores)
+```
+
+
+```{r}
+prediction.scores.1 <- prediction.scores[colnames(chicken_visium)[chicken_visium$orig.ident == "D10"],]
+dim(prediction.scores.1)
+```
+
+
+```{r}
+interaction_matrix = matrix(0, ncol = length(unique(chicken_visium$celltype_prediction)), nrow = length(unique(chicken_visium$celltype_prediction)))
+rownames(interaction_matrix) <- unique(chicken_visium$celltype_prediction)
+colnames(interaction_matrix) <- unique(chicken_visium$celltype_prediction)
+```
+
+
+```{r}
+for(i in 1:nrow(prediction.scores.1)){
+  temp <- colnames(sort(prediction.scores.1[i,prediction.scores.1[i,] > 0], decreasing = T))
+  if(length(temp) == 2){
+    interaction_matrix[temp[1], temp[2]] <- interaction_matrix[temp[1], temp[2]] + 1
+  } else if(length(temp) == 3){
+    interaction_matrix[temp[1], temp[2]] <- interaction_matrix[temp[1], temp[2]] + 1
+    interaction_matrix[temp[2], temp[3]] <- interaction_matrix[temp[2], temp[3]] + 1
+    interaction_matrix[temp[1], temp[3]] <- interaction_matrix[temp[1], temp[3]] + 1
+  } else if(length(temp) >= 4){
+    interaction_matrix[temp[1], temp[2]] <- interaction_matrix[temp[1], temp[2]] + 1
+    interaction_matrix[temp[2], temp[3]] <- interaction_matrix[temp[2], temp[3]] + 1
+    interaction_matrix[temp[3], temp[4]] <- interaction_matrix[temp[3], temp[4]] + 1
+    interaction_matrix[temp[1], temp[3]] <- interaction_matrix[temp[1], temp[3]] + 1
+    interaction_matrix[temp[1], temp[4]] <- interaction_matrix[temp[1], temp[4]] + 1
+    interaction_matrix[temp[2], temp[4]] <- interaction_matrix[temp[2], temp[4]] + 1
+  }
+}
+```
+
+
+```{r}
+interaction_matrix <- interaction_matrix + t(interaction_matrix)
+colnames(interaction_matrix)
+temp <- colnames(interaction_matrix)[!colnames(interaction_matrix) %in% c("Erythrocytes", "Macrophages", "Mitochondria enriched cardiomyocytes")]
+interaction_matrix <- interaction_matrix[temp, temp]
+```
+
