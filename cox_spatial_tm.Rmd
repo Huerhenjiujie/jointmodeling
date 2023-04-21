@@ -1,0 +1,362 @@
+---
+title: '4.10 The Cox model fitting'
+author: "Hening Cui"
+date: "4/4/2023"
+output: html_document
+---
+# Preparing Data
+## loading library
+```{r, warning=FALSE}
+library(Seurat)
+library(spacexr)
+library(tidyverse)
+library(spatstat)
+library(nlme)
+```
+
+## loading dataset
+```{r}
+load(file= "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")
+```
+
+```{r}
+TM <- FetchData(object=chicken_visium,vars=c('TMSB4X','ident', 'orig.ident')) 
+tmsb4x=cbind(cell = rownames(TM), TM)
+```
+
+
+# Try first with D4 data
+
+## Prepare data
+
+D4 coordinate
+
+```{r}
+coords_d4 <- GetTissueCoordinates(chicken_visium, image= 'slice1')
+colnames(coords_d4) <- c("x", "y")
+coords_d4 <- cbind(cell = rownames(coords_d4),coords_d4)
+```
+
+D4 dataset and 
+```{r}
+D4 = tmsb4x %>% 
+  filter(orig.ident=='D4') %>% 
+  merge(coords_d4, by="cell") 
+```
+
+
+```{r}
+X <- D4$x
+Y <- D4$y
+xrange <- range(X, na.rm=T)
+yrange <- range(Y, na.rm=T)
+D4_samppp =  ppp(X,Y,c(380, 484),c(268, 386), marks=D4["TMSB4X"])
+```
+
+
+```{r}
+plot(unmark(D4_samppp))
+```
+```{r}
+hist(marks(D4_samppp), main="D4-Distribution of TMSB4X exprssion")
+```
+```{r}
+D4_sampty =  ppp(X,Y,c(380, 484),c(268, 386),marks = D4$ident)
+D4cell_type= split(D4_sampty)
+D4_ty2 = D4cell_type$'2'
+```
+
+```{r}
+D4_ty2df = D4 %>% filter(ident==2)
+LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D4_ty2df, method='REML')
+summary(LMM)
+```
+
+
+```{r}
+cf=coef(LMM)
+TMfunction <- function(x,y){ cf$`(Intercept)`	-0.00007802*x + 0.00011638*y}
+D4_fit =  kppm(D4_ty2 ~TMSB4X, "LGCP", data = D4_ty2, covariates=list(TMSB4X=TMfunction))
+```
+
+```{r}
+summary(D4_fit)
+plot(D4_fit)
+```
+
+
+## EDA
+Build D4 data ppp project 
+```{r unmark data}
+X <- D4$x
+Y <- D4$y
+xrange <- range(X, na.rm=T)
+yrange <- range(Y, na.rm=T)
+D4_tm =  ppp(X,Y,xrange,yrange,marks = D4$TMSB4X)
+par(mfrow=c(2,2))
+plot(unmark(D4_tm),main="D4 only point pattern")
+plot(D4_tm,main="TMSB4X marker spatial plot")
+hist(marks(D4_tm), main="D4-Distribution of TMSB4X exprssion")
+D4_ty =  ppp(X,Y,xrange,yrange,marks = D4$ident)
+plot(D4_ty, main="D4 cell type distribution")
+```
+
+
+
+
+Different cell type density plot
+
+```{r}
+D4cell_type= split(D4_ty)
+plot(D4cell_type[0:9], main = "D4 cell location by type")
+plot(density(D4cell_type[0:9]), main = "D4 Densities of cell type")
+```
+
+## For type 2 cell fitting model
+
+Type 2 cell data
+
+```{r}
+D4_ty2 = D4cell_type$'2'
+```
+
+
+
+Fitting LMM model for the TMSB4
+```{r}
+D4_ty2df = D4 %>% filter(ident==2)
+LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D4_ty2df, method='REML')
+summary(LMM)
+```
+
+Fitting Cox spatial model
+
+```{r}
+cf=coef(LMM)
+TMfunction <- function(x,y){ cf$`(Intercept)`	-0.00007802*x + 0.00011638*y}
+D4_fit =  kppm(unmark(D4_ty2) ~TMSB4X, "LGCP", data = D4_ty2, covariates=list(TMSB4X=TMfunction))
+```
+
+
+```{r}
+summary(D4_fit)
+plot(D4_fit)
+```
+
+
+# Pseudotime analysis
+
+Take type2 as an example.
+
+## Type 2 all time
+```{r}
+Type2 = tmsb4x %>% 
+  filter(ident==2) %>% 
+  dplyr::rename(time = orig.ident)
+```
+
+
+The function to get coordinate
+```{r}
+getcoor=function(slice, time){
+coords <- GetTissueCoordinates(chicken_visium, image= slice)
+colnames(coords) <- c("x", "y")
+coords <- cbind(cell = rownames(coords),coords)
+coords$time = time
+return(coords)
+}
+```
+
+All the time point coordinates
+```{r}
+coords_d4 = getcoor('slice1','D4')
+coords_d10 = getcoor('slice1_D10-C1','D10')
+coords_d7 = getcoor('slice1_D7-B1','D7')
+coords_d14 = getcoor('slice1_D14-D1','D14')
+```
+
+```{r}
+all_coor= tmsb4x %>% 
+  dplyr::rename(time = orig.ident) %>% 
+  merge(coords_d4,by="cell") %>% 
+  rbind(merge(Type2, coords_d7,by="cell")) %>% 
+  rbind(merge(Type2, coords_d10,by="cell")) %>% 
+  rbind(merge(Type2, coords_d14,by="cell")) %>% 
+  mutate(time = factor(time.x))
+```
+Integrate to the type 2 dataset
+
+
+```{r}
+ty2_coor= Type2 %>% 
+  merge(coords_d4,by="cell") %>% 
+  rbind(merge(Type2, coords_d7,by="cell")) %>% 
+  rbind(merge(Type2, coords_d10,by="cell")) %>% 
+  rbind(merge(Type2, coords_d14,by="cell")) %>% 
+  mutate(time = factor(time.x))
+```
+
+```{r}
+D7_ty2 = ty2_coor %>% 
+  filter(time=='D7') 
+```
+
+
+```{r}
+X <- D7_ty2$x
+Y <- D7_ty2$y
+xrange <- range(X, na.rm=T)
+yrange <- range(Y, na.rm=T)
+D7_samppp =  ppp(X,Y,c(300, 469), c(250, 434), marks=D7_ty2["TMSB4X"])
+```
+
+
+```{r}
+plot(unmark(D7_samppp))
+```
+```{r}
+LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D7_ty2, method='REML')
+summary(LMM)
+```
+
+
+```{r}
+cf=coef(LMM)
+TMfunction <- function(x,y){ cf$`(Intercept)`	+ 0.00000425*x - 	-0.00000400*y}
+D7_fit =  kppm(unmark(D7_samppp) ~TMSB4X, "LGCP", data = D7_ty2, covariates=list(TMSB4X=TMfunction))
+```
+
+```{r}
+summary(D7_fit)
+plot(D7_fit)
+```
+
+
+```{r}
+D10_ty2 = ty2_coor %>% 
+  filter(time=='D10') 
+```
+
+
+```{r}
+X <- D10_ty2$x
+Y <- D10_ty2$y
+xrange <- range(X, na.rm=T)
+yrange <- range(Y, na.rm=T)
+D10_samppp =  ppp(X,Y,xrange, yrange, marks=D10_ty2["TMSB4X"])
+```
+
+
+```{r}
+plot(unmark(D10_samppp))
+```
+
+```{r}
+LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D10_ty2, method='REML')
+summary(LMM)
+```
+
+
+```{r}
+cf=coef(LMM)
+TMfunction <- function(x,y){ cf$`(Intercept)`	+ 0.00000311*x  	-0.00000870*y}
+D10_fit =  kppm(unmark(D10_samppp) ~TMSB4X, "LGCP", data = D10_ty2, covariates=list(TMSB4X=TMfunction))
+```
+
+```{r}
+summary(D10_fit)
+plot(D10_fit)
+```
+
+```{r}
+D14_ty2 = ty2_coor %>% 
+  filter(time=='D14') 
+```
+
+
+```{r}
+X <- D14_ty2$x
+Y <- D14_ty2$y
+xrange <- range(X, na.rm=T)
+yrange <- range(Y, na.rm=T)
+D14_samppp =  ppp(X,Y,xrange, yrange, marks=D14_ty2["TMSB4X"])
+```
+
+
+```{r}
+plot(unmark(D14_samppp))
+```
+
+Build the ppp object
+
+```{r}
+buildppp=function(dataset,marker){
+X <- dataset$x
+Y <- dataset$y
+xrange <- range(X, na.rm=T)
+yrange <- range(Y, na.rm=T)
+ppppro =  ppp(X,Y,xrange,yrange,marks = dataset[marker])
+return(ppppro)
+}
+```
+
+```{r}
+allppp=buildppp(all_coor, 'time')
+all_time =split(allppp)
+plot(all_time[0:4], main = "cell location")
+```
+
+## EDA
+```{r}
+type2ppp =  buildppp(ty2_coor, 'TMSB4X')
+hist(marks(type2ppp), main="Type 2Distribution of TMSB4X exprssion")
+```
+
+
+
+```{r, fig.height=12, fig.width=20}
+type2_alltime =  buildppp(ty2_coor, 'time')
+ty2_time= split(type2_alltime)
+plot(ty2_time[0:4], main = "Type 2 cell location by type")
+plot(density(ty2_time[0:4]), main = "Type 2 cell Densities across time")
+```
+
+
+## Model fit
+
+```{r}
+fitcox = function(data, tim, ppplist){
+  dataset=  data %>% filter(time == tim)
+  LMM = lme (TMSB4X ~ x+y, random = ~1 | cell,  data = dataset, method='REML')
+  ppppro = ppplist[[tim]]
+  cf=coef(LMM)
+  TMfunction <- function(x,y){ cf$`(Intercept)`	-cf$x*x + cf$y*y}
+  cox_fit =  kppm(unmark(ppppro) ~TMSB4X, "LGCP", data = ppppro, covariates=list(TMSB4X=TMfunction))
+  return(cox_fit)}
+```
+
+
+```{r}
+D4 = fitcox(ty2_coor,'D4',ty2_time)
+summary(D4)
+D7 = fitcox(ty2_coor,'D7',ty2_time)
+summary(D7)
+D10 = fitcox(ty2_coor,'D10',ty2_time)
+summary(D10)
+D14 = fitcox(ty2_coor,'D14',ty2_time)
+summary(D14)
+```
+
+```{r, fig.height= 20}
+plot(D4, main="D4 type 2")
+plot(D7, main="D7 type 2")
+plot(D10, main="D10 type 2")
+plot(D14, main="D14 type 2")
+```
+
+
+
+
+
+
+

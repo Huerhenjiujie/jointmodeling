@@ -167,6 +167,9 @@ table(chicken_visium$region)
 ```{r}
 SpatialFeaturePlot(day4_visium, features ="TMSB4X", ncol = 3, alpha = c(0.1, 1))
 ```
+```{r}
+ggsave("test.tiff", units="in", width=5, height=4, dpi=300, compression = 'lzw')
+```
 
 
 ```{r}
