@@ -1,0 +1,121 @@
+---
+title: "Cox_spatial_visual"
+author: "Hening Cui"
+date: "4/21/2023"
+output: html_document
+---
+
+## loading library
+```{r, warning=FALSE}
+library(Seurat)
+library(spacexr)
+library(tidyverse)
+library(spatstat)
+library(nlme)
+```
+
+## loading dataset
+```{r}
+load(file= "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")
+```
+
+```{r}
+TM <- FetchData(object=chicken_visium,vars=c('TMSB4X','ident', 'orig.ident')) 
+tmsb4x=cbind(cell = rownames(TM), TM) %>% 
+  dplyr::rename(time = orig.ident)
+```
+
+
+The function to get coordinate
+```{r}
+getcoor=function(slice, time){
+coords <- GetTissueCoordinates(chicken_visium, image= slice)
+colnames(coords) <- c("x", "y")
+coords <- cbind(cell = rownames(coords),coords)
+coords$time = time
+return(coords)
+}
+```
+
+```{r}
+coords_d4 = getcoor('slice1','D4')
+coords_d10 = getcoor('slice1_D10-C1','D10')
+coords_d7 = getcoor('slice1_D7-B1','D7')
+coords_d14 = getcoor('slice1_D14-D1','D14')
+```
+
+function for constuct ppp
+
+```{r}
+buildppp=function(dataset){
+X <- dataset$x
+Y <- dataset$y
+xrange <- range(X, na.rm=T)
+print(xrange)
+yrange <- range(Y, na.rm=T)
+print(yrange)
+ppppro =  ppp(X,Y,xrange,yrange)
+return(ppppro)
+}
+```
+
+```{r}
+D4 = tmsb4x %>% 
+  filter(time=='D4') %>% 
+  merge(coords_d4, by="cell") 
+```
+
+```{r}
+D4_samppp =  buildppp(D4)
+```
+
+```{r}
+D4_win=owin(c(380, 484),c(268, 386))
+plot(D4_samppp, clipwin=D4_win, show.window=FALSE, main="D4")
+```
+
+```{r}
+D7 = tmsb4x %>% 
+  filter(time=='D7') %>% 
+  merge(coords_d7, by="cell") 
+```
+
+```{r}
+D7_samppp =  buildppp(D7)
+```
+
+
+```{r}
+D7_win=owin(c(255, 480),c(267,470))
+plot(D7_samppp, clipwin=D7_win, show.window=FALSE, main="D7")
+```
+
+```{r}
+D10 = tmsb4x %>% 
+  filter(time=='D10') %>% 
+  merge(coords_d10, by="cell") 
+```
+
+```{r}
+D10_samppp =  buildppp(D10)
+```
+
+```{r}
+plot(D10_samppp)
+D10_win=owin(c(193,547),c(320,538))
+plot(D10_samppp, clipwin=D10_win, show.window=FALSE, main="D10")
+```
+```{r}
+D14 = tmsb4x %>% 
+  filter(time=='D14') %>% 
+  merge(coords_d14, by="cell") 
+```
+
+```{r}
+D14_samppp =  buildppp(D14)
+```
+
+```{r}
+plot(D14_samppp, show.window=FALSE,main="D14")
+
+```
