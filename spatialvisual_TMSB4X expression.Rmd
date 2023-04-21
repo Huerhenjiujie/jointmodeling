@@ -201,6 +201,9 @@ SpatialFeaturePlot(day10_visium, features ="TMSB4X", ncol = 3, alpha = c(0.1, 1)
 ```{r}
 SpatialDimPlot(day10_visium, crop = F, pt.size.factor = 1.0) + coord_cartesian()
 ```
+```{r}
+SpatialFeaturePlot(day14_visium, features ="TMSB4X", ncol = 3, alpha = c(0.1, 1))
+```
 
 
 ```{r}

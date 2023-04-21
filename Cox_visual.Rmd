@@ -22,7 +22,8 @@ load(file= "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")
 ```{r}
 TM <- FetchData(object=chicken_visium,vars=c('TMSB4X','ident', 'orig.ident')) 
 tmsb4x=cbind(cell = rownames(TM), TM) %>% 
-  dplyr::rename(time = orig.ident)
+  dplyr::rename(time = orig.ident) 
+tmsb4x$is2=as.factor(ifelse(tmsb4x$ident==2,1,0))
 ```
 
 
@@ -47,14 +48,14 @@ coords_d14 = getcoor('slice1_D14-D1','D14')
 function for constuct ppp
 
 ```{r}
-buildppp=function(dataset){
+buildppp=function(dataset,markers){
 X <- dataset$x
 Y <- dataset$y
 xrange <- range(X, na.rm=T)
 print(xrange)
 yrange <- range(Y, na.rm=T)
 print(yrange)
-ppppro =  ppp(X,Y,xrange,yrange)
+ppppro =  ppp(X,Y,xrange,yrange,marks=markers)
 return(ppppro)
 }
 ```
@@ -66,12 +67,13 @@ D4 = tmsb4x %>%
 ```
 
 ```{r}
-D4_samppp =  buildppp(D4)
+D4_samppp =  buildppp(D4,D4$is2)
 ```
 
 ```{r}
 D4_win=owin(c(380, 484),c(268, 386))
-plot(D4_samppp, clipwin=D4_win, show.window=FALSE, main="D4")
+
+plot(D4_samppp, clipwin=D4_win, show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D4")
 ```
 
 ```{r}
@@ -81,13 +83,13 @@ D7 = tmsb4x %>%
 ```
 
 ```{r}
-D7_samppp =  buildppp(D7)
+D7_samppp =  buildppp(D7, D7$is2)
 ```
 
 
 ```{r}
 D7_win=owin(c(255, 480),c(267,470))
-plot(D7_samppp, clipwin=D7_win, show.window=FALSE, main="D7")
+plot(D7_samppp, clipwin=D7_win, show.window=FALSE, cols=c("blue", "green"), main="D7")
 ```
 
 ```{r}
@@ -97,13 +99,13 @@ D10 = tmsb4x %>%
 ```
 
 ```{r}
-D10_samppp =  buildppp(D10)
+D10_samppp =  buildppp(D10, D10$is2)
 ```
 
 ```{r}
 plot(D10_samppp)
 D10_win=owin(c(193,547),c(320,538))
-plot(D10_samppp, clipwin=D10_win, show.window=FALSE, main="D10")
+plot(D10_samppp, clipwin=D10_win, show.window=FALSE,cols=c("blue", "green"),  main="D10")
 ```
 ```{r}
 D14 = tmsb4x %>% 
@@ -112,10 +114,18 @@ D14 = tmsb4x %>%
 ```
 
 ```{r}
-D14_samppp =  buildppp(D14)
+D14_samppp =  buildppp(D14, D14$is2)
 ```
 
 ```{r}
-plot(D14_samppp, show.window=FALSE,main="D14")
+plot(D14_samppp, show.window=FALSE,main="D14", cols=c("blue", "green"))
 
 ```
+```{r, fig.height =10, fig.width=10}
+par(mfrow=c(2,2))
+plot(D4_samppp, clipwin=D4_win, show.window=FALSE, cols=c("green", "blue"), legend=FALSE, main="D4")
+plot(D7_samppp, clipwin=D7_win, show.window=FALSE, cols=c("green", "blue"), legend=FALSE, main="D7")
+plot(D10_samppp, clipwin=D10_win, show.window=FALSE, cols=c("green", "blue"), legend=FALSE, main="D10")
+plot(D14_samppp,  show.window=FALSE, cols=c("green", "blue"), legend=FALSE, main="D14")
+```
+

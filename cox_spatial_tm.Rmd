@@ -57,9 +57,19 @@ D4_samppp =  ppp(X,Y,c(380, 484),c(268, 386), marks=D4["TMSB4X"])
 ```{r}
 plot(unmark(D4_samppp))
 ```
+
+```{r}
+plot(density(D4_samppp))
+```
+
+
+
+
+
 ```{r}
 hist(marks(D4_samppp), main="D4-Distribution of TMSB4X exprssion")
 ```
+
 ```{r}
 D4_sampty =  ppp(X,Y,c(380, 484),c(268, 386),marks = D4$ident)
 D4cell_type= split(D4_sampty)
