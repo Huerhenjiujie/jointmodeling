@@ -1,0 +1,232 @@
+---
+title: "Temporal Cox model"
+author: "Hening Cui"
+date: "5/9/2023"
+output: 
+  html_document:
+   code_folding: hide
+---
+```{r, warning=FALSE, message=FALSE}
+library(Seurat)
+library(spacexr)
+library(tidyverse)
+library(spatstat)
+library(nlme)
+library(lgcp)
+library(CAinterprTools)
+```
+
+# loading dataset
+```{r}
+load(file= "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")
+```
+
+```{r}
+TM <- FetchData(object=chicken_visium,vars=c('TMSB4X','ident', 'orig.ident')) 
+tmsb4x=cbind(cell = rownames(TM), TM) %>% 
+  dplyr::rename(time = orig.ident) 
+tmsb4x$is2=as.factor(ifelse(tmsb4x$ident==2,1,0))
+```
+
+The function to get coordinate
+```{r}
+getcoor=function(slice, time){
+coords <- GetTissueCoordinates(chicken_visium, image= slice)
+colnames(coords) <- c("x", "y")
+coords <- cbind(cell = rownames(coords),coords)
+coords$time = time
+return(coords)
+}
+```
+
+```{r}
+coords_d4 = getcoor('slice1','D4')
+coords_d10 = getcoor('slice1_D10-C1','D10')
+coords_d7 = getcoor('slice1_D7-B1','D7')
+coords_d14 = getcoor('slice1_D14-D1','D14')
+```
+
+Function for constuct ppp
+
+```{r}
+buildppp=function(dataset,markers){
+X <- dataset$x
+Y <- dataset$y
+xrange <- range(X, na.rm=T)
+print(xrange)
+yrange <- range(Y, na.rm=T)
+print(yrange)
+ppppro =  ppp(X,Y,xrange,yrange,marks=markers)
+return(ppppro)
+}
+```
+
+# EDA 
+
+## D4
+
+```{r}
+D4 = tmsb4x %>% 
+  filter(time=='D4') %>% 
+  merge(coords_d4, by="cell")  %>% 
+  filter(x >= 385 &  y>=267 )  %>% 
+  rename(Y=x, X=y) %>% 
+  rename(x=X, y=Y) %>% 
+  mutate(x=x-138, y=y-208) %>% 
+  mutate(time=4)
+summary(D4)
+```
+
+
+```{r}
+D4_samppp =  ppp(D4$x,D4$y, c(0, 450),c(0,550), marks=D4$is2)
+```
+
+```{r}
+D4_ty2=D4 %>% 
+  filter(is2==1)
+D4_ty2p=ppp(D4_ty2$x,D4_ty2$y, c(0, 450),c(0,550))
+```
+
+```{r, fig.height=10, fig.width=12}
+par(mfrow=c(1,2))
+plot(D4_samppp, pch = 20,show.window=FALSE,cols=c("blue", "green"), legend=FALSE, main="D4 point",markscale = 0.1)
+plot(density(D4_ty2p), main="D4 density")
+```
+
+
+### D7
+
+```{r}
+D7 = tmsb4x %>% 
+  filter(time=='D7') %>% 
+  merge(coords_d7, by="cell")  %>% 
+  filter(x >= 255 &  y>=267 )  %>% 
+  rename(Y=x, X=y) %>% 
+  rename(x=X, y=Y) %>% 
+  mutate(x=x-150, y=y-152) %>% 
+  mutate(time=7)
+summary(D7)
+```
+
+```{r}
+D7_samppp =  ppp(D7$x,D7$y, c(0, 450),c(0,550), marks=D7$is2)
+```
+
+```{r}
+D7_ty2=D7 %>% 
+  filter(is2==1)
+D7_ty2p=ppp(D7_ty2$x,D7_ty2$y, c(0, 450),c(0,550))
+```
+
+```{r, fig.height=10, fig.width=12}
+par(mfrow=c(1,2))
+plot(D7_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D7 point")
+plot(density(D7_ty2p), main="D7 density")
+```
+
+### D10
+
+```{r}
+D10 = tmsb4x %>% 
+  filter(time=='D10') %>% 
+  merge(coords_d10, by="cell")  %>% 
+  filter(x >= 193 &  y>=320)  %>% 
+  rename(Y=x, X=y) %>% 
+  rename(x=X, y=Y) %>% 
+  mutate(x=x-217, y=y-128) %>% 
+  mutate(time=10)
+summary(D10)
+```
+
+```{r}
+D10_samppp =ppp(D10$x,D10$y, c(0, 450),c(0,550), marks=D10$is2)
+```
+
+```{r}
+D10_ty2=D10 %>% 
+  filter(is2==1)
+D10_ty2p=ppp(D10_ty2$x,D10_ty2$y, c(0, 450),c(0,550))
+```
+
+```{r, fig.height=10, fig.width=12}
+par(mfrow=c(1,2))
+plot(D10_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D10 point")
+plot(density(D10_ty2p), main="D10 density")
+```
+
+## D14
+```{r}
+D14 = tmsb4x %>% 
+  filter(time=='D14') %>% 
+  merge(coords_d14, by="cell")  %>% 
+  rename(Y=x, X=y) %>% 
+  rename(x=X, y=Y) %>% 
+  mutate(x=x-144, y=y-78) %>% 
+  mutate(time=14)
+summary(D14)
+```
+
+```{r}
+D14_samppp =  ppp(D14$x,D14$y, c(0, 450),c(0,550), marks=D14$is2)
+```
+
+```{r}
+D14_ty2=D14 %>% 
+  filter(is2==1)
+D14_ty2p=ppp(D14_ty2$x,D14_ty2$y, c(0, 450),c(0,550))
+```
+
+```{r, fig.height=10, fig.width=12}
+par(mfrow=c(1,2))
+plot(D14_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D14 point")
+plot(density(D14_ty2p), main="D14 density")
+```
+
+## Cox Spatial Temporal Model
+prepare data
+```{r}
+temp= rbind(D4, D7, D10, D14) %>% 
+  filter(ident==2) %>% 
+  select(x,y,time)
+```
+
+```{r}
+tlim=c(0,14)
+```
+
+```{r}
+xyt <- stppp(list(data = temp, tlim = tlim, window = owin(c(0,450),c(0,550))))
+```
+
+```{r}
+xyt <- integerise(xyt)
+xyt
+```
+
+```{r}
+den <- lambdaEst(xyt, axes = TRUE)
+plot(den)
+```
+```{r}
+sar <- spatialAtRisk(den)
+sar
+plot(sar)
+```
+```{r}
+mut <- muEst(xyt)
+mut
+plot(mut)
+```
+
+```{r}
+gin <- ginhomAverage(xyt, spatial.intensity = sar, temporal.intensity = mut)
+plot(gin)
+```
+
+```{r}
+kin <- KinhomAverage(xyt, spatial.intensity = sar, temporal.intensity = mut)
+```
+
+
+
