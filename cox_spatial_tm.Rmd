@@ -12,6 +12,7 @@ library(spacexr)
 library(tidyverse)
 library(spatstat)
 library(nlme)
+library(sp)
 ```
 
 ## loading dataset
@@ -36,6 +37,8 @@ coords_d4 <- GetTissueCoordinates(chicken_visium, image= 'slice1')
 colnames(coords_d4) <- c("x", "y")
 coords_d4 <- cbind(cell = rownames(coords_d4),coords_d4)
 ```
+
+
 
 D4 dataset and 
 ```{r}
@@ -368,6 +371,9 @@ plot(D10, main="D10 type 2")
 plot(D14)
 ```
 
+```{r}
+
+```
 
 
 

@@ -14,6 +14,9 @@ library(spatstat)
 library(nlme)
 library(lgcp)
 library(CAinterprTools)
+library(sf)
+library(concaveman)
+library(ggplot2)
 ```
 
 # loading dataset
@@ -77,10 +80,48 @@ D4 = tmsb4x %>%
 summary(D4)
 ```
 
+```{r}
+xym= D4 %>% select(c("x","y")) 
+pts <- st_as_sf(xym, coords=c('x','y'))
+conc <- concaveman(pts)
+ggplot() +
+  geom_sf(data = conc, fill = NA)
+```
+
+
+
+```{r}
+d4_owin= as.owin(as_Spatial(conc))
+plot(d4_owin)
+```
+
 
 ```{r}
 D4_samppp =  ppp(D4$x,D4$y, c(0, 450),c(0,550), marks=D4$is2)
 ```
+
+```{r}
+D4_samppp =  ppp(D4$x,D4$y, window = d4_owin, marks=D4$is2)
+```
+
+
+```{r}
+D4_ty2_owin=ppp(D4_ty2$x,D4_ty2$y, window = d4_owin)
+```
+```{r}
+par(mfrow=c(1,2))
+plot(D4_samppp, pch = 20,show.window=FALSE,cols=c("blue", "green"), legend=FALSE, main="D4 point",markscale = 0.1)
+plot(density(D4_ty2_owin), main="D4 density")
+```
+```{r}
+pixel=pixellate.ppp(D4_ty2_owin,fractional=TRUE)
+plot(pixel)
+```
+
+```{r}
+plot(as.im(density(D4_ty2_owin), fractional=TRUE))
+```
+
 
 ```{r}
 D4_ty2=D4 %>% 
@@ -94,6 +135,19 @@ plot(D4_samppp, pch = 20,show.window=FALSE,cols=c("blue", "green"), legend=FALSE
 plot(density(D4_ty2p), main="D4 density")
 ```
 
+```{r}
+D4_fit =  kppm(D4_ty2p ~1, "LGCP")
+D4_fit
+```
+
+```{r}
+D4_fit =  kppm(D4_ty2_owin ~1, "LGCP")
+D4_fit
+```
+
+```{r}
+plot(predict.dppm(D4_fit))
+```
 
 ### D7
 
@@ -110,13 +164,25 @@ summary(D7)
 ```
 
 ```{r}
-D7_samppp =  ppp(D7$x,D7$y, c(0, 450),c(0,550), marks=D7$is2)
+xym= D7 %>% select(c("x","y")) 
+pts <- st_as_sf(xym, coords=c('x','y'))
+conc <- concaveman(pts)
+ggplot() +
+  geom_sf(data = conc, fill = NA)
+```
+
+```{r}
+d7_owin= as.owin(as_Spatial(conc))
+plot(d7_owin)
+```
+```{r}
+D7_samppp =  ppp(D7$x,D7$y, window = d7_owin, marks=D7$is2)
 ```
 
 ```{r}
 D7_ty2=D7 %>% 
   filter(is2==1)
-D7_ty2p=ppp(D7_ty2$x,D7_ty2$y, c(0, 450),c(0,550))
+D7_ty2p=ppp(D7_ty2$x,D7_ty2$y, window = d7_owin)
 ```
 
 ```{r, fig.height=10, fig.width=12}
@@ -124,6 +190,11 @@ par(mfrow=c(1,2))
 plot(D7_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D7 point")
 plot(density(D7_ty2p), main="D7 density")
 ```
+```{r}
+D7_fit =  kppm(D7_ty2p ~1, "LGCP")
+D7_fit
+```
+
 
 ### D10
 
@@ -140,19 +211,35 @@ summary(D10)
 ```
 
 ```{r}
-D10_samppp =ppp(D10$x,D10$y, c(0, 450),c(0,550), marks=D10$is2)
+xym= D10 %>% select(c("x","y")) 
+pts <- st_as_sf(xym, coords=c('x','y'))
+conc <- concaveman(pts)
+ggplot() +
+  geom_sf(data = conc, fill = NA)
+```
+
+```{r}
+d10_owin= as.owin(as_Spatial(conc))
+plot(d10_owin)
+```
+```{r}
+D10_samppp =ppp(D10$x,D10$y, window = d10_owin, marks=D10$is2)
 ```
 
 ```{r}
 D10_ty2=D10 %>% 
   filter(is2==1)
-D10_ty2p=ppp(D10_ty2$x,D10_ty2$y, c(0, 450),c(0,550))
+D10_ty2p=ppp(D10_ty2$x,D10_ty2$y, window = d10_owin)
 ```
 
 ```{r, fig.height=10, fig.width=12}
 par(mfrow=c(1,2))
 plot(D10_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D10 point")
 plot(density(D10_ty2p), main="D10 density")
+```
+```{r}
+D10_fit =  kppm(D10_ty2p ~1, "LGCP")
+D10_fit
 ```
 
 ## D14
@@ -168,13 +255,28 @@ summary(D14)
 ```
 
 ```{r}
-D14_samppp =  ppp(D14$x,D14$y, c(0, 450),c(0,550), marks=D14$is2)
+xym= D14 %>% select(c("x","y")) 
+pts <- st_as_sf(xym, coords=c('x','y'))
+conc <- concaveman(pts)
+ggplot() +
+  geom_sf(data = conc, fill = NA)
 ```
+
+```{r}
+d14_owin= as.owin(as_Spatial(conc))
+plot(d14_owin)
+```
+
+```{r}
+D14_samppp =  ppp(D14$x,D14$y, window = d14_owin, marks=D14$is2)
+```
+
+
 
 ```{r}
 D14_ty2=D14 %>% 
   filter(is2==1)
-D14_ty2p=ppp(D14_ty2$x,D14_ty2$y, c(0, 450),c(0,550))
+D14_ty2p=ppp(D14_ty2$x,D14_ty2$y, window = d14_owin)
 ```
 
 ```{r, fig.height=10, fig.width=12}
@@ -182,14 +284,91 @@ par(mfrow=c(1,2))
 plot(D14_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D14 point")
 plot(density(D14_ty2p), main="D14 density")
 ```
+```{r}
+D14_fit =  kppm(D14_ty2p ~1, "LGCP")
+D14_fit
+```
+
+## Spatstat replicate model
+Create the list of all point
+```{r}
+time_ty2=solist(D4_ty2_owin,D7_ty2p, D10_ty2p, D14_ty2p)
+time_ty2
+sapply(time_ty2, npoints)
+```
+
+```{r}
+plot.solist(time_ty2, main="The ty2 cell", main.panel=letters[1:4], legend=FALSE, equal.scales = TRUE, halign=TRUE, valign=TRUE)
+```
+
+Turn list into hyperframe
+```{r}
+hyoertime <- hyperframe(cell=time_ty2)
+hyoertime$time=c(4,7,10,14)
+```
+
+```{r}
+plot(hyoertime, quote(plot(density(cell), main=time)))
+```
+
+
+```{r}
+try=mppm(cell~time, hyoertime)
+try
+```
+
+```{r}
+sub_time=subfits(try)
+```
+
+```{r}
+fitted_intensities <- predict.mppm(try)
+```
+
+```{r}
+fitted_intensities2 <- predict.mppm(try,locations = D4_ty2_owin)
+fitted_intensities2
+```
+```{r}
+try_random= mppm(cell ~ 1, hyoertime, random= ~1 | time)
+```
+
+```{r}
+try_pp=as.ppp(D4_ty2$x, D4_ty2$y, d4_owin, marks=fitted_intensities$trend[[1]])
+```
+
+
+```{r}
+K_functions <-  Kinhom(fitted_intensities2, ratio= TRUE)
+```
+
 
 ## Cox Spatial Temporal Model
 prepare data
 ```{r}
 temp= rbind(D4, D7, D10, D14) %>% 
   filter(ident==2) %>% 
-  select(x,y,time)
+  select(x,y,time, is2)
 ```
+
+```{r}
+temppx=ppx(temp)
+plot(temppx)
+```
+
+```{r}
+library("stpp")
+data("fmd")
+```
+```{r}
+data("northcumbria")
+fmd <- as.3dpoints(fmd)
+plot(fmd, s.region = northcumbria)
+```
+```{r}
+animation(fmd, runtime = 10, cex = 0.5, s.region = northcumbria)
+```
+
 
 ```{r}
 tlim=c(0,14)

@@ -44,6 +44,7 @@ tmsb4x$time= as.numeric(sub(".*D","", tmsb4x$time))
 LMM1 <- lme (TMSB4X ~ time +ident, random = ~1 | time,  data = tmsb4x, method='REML')
 summary (LMM1)
 ```
+
 ```{r}
 plot(LMM1)
 ```
