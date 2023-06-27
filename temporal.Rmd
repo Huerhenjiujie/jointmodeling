@@ -104,15 +104,22 @@ D4_samppp =  ppp(D4$x,D4$y, c(0, 450),c(0,550), marks=D4$is2)
 D4_samppp =  ppp(D4$x,D4$y, window = d4_owin, marks=D4$is2)
 ```
 
+```{r}
+D4_ty2=D4 %>% 
+  filter(is2==1)
+D4_ty2p=ppp(D4_ty2$x,D4_ty2$y, c(0, 450),c(0,550))
+```
 
 ```{r}
 D4_ty2_owin=ppp(D4_ty2$x,D4_ty2$y, window = d4_owin)
 ```
+
 ```{r}
 par(mfrow=c(1,2))
 plot(D4_samppp, pch = 20,show.window=FALSE,cols=c("blue", "green"), legend=FALSE, main="D4 point",markscale = 0.1)
 plot(density(D4_ty2_owin), main="D4 density")
 ```
+
 ```{r}
 pixel=pixellate.ppp(D4_ty2_owin,fractional=TRUE)
 plot(pixel)
@@ -123,11 +130,7 @@ plot(as.im(density(D4_ty2_owin), fractional=TRUE))
 ```
 
 
-```{r}
-D4_ty2=D4 %>% 
-  filter(is2==1)
-D4_ty2p=ppp(D4_ty2$x,D4_ty2$y, c(0, 450),c(0,550))
-```
+
 
 ```{r, fig.height=10, fig.width=12}
 par(mfrow=c(1,2))
@@ -284,6 +287,7 @@ par(mfrow=c(1,2))
 plot(D14_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D14 point")
 plot(density(D14_ty2p), main="D14 density")
 ```
+
 ```{r}
 D14_fit =  kppm(D14_ty2p ~1, "LGCP")
 D14_fit
@@ -311,11 +315,24 @@ hyoertime$time=c(4,7,10,14)
 plot(hyoertime, quote(plot(density(cell), main=time)))
 ```
 
-
 ```{r}
 try=mppm(cell~time, hyoertime)
-try
 ```
+test the model
+```{r}
+cdf.test.mppm(try, "y")
+```
+
+
+```{r}
+plot.mppm(try, main="The ty2 cell", cif=TRUE,
+                how="image")
+```
+
+```{r}
+lurking(try, covariate = expression(time))
+```
+
 
 ```{r}
 sub_time=subfits(try)
@@ -329,19 +346,29 @@ fitted_intensities <- predict.mppm(try)
 fitted_intensities2 <- predict.mppm(try,locations = D4_ty2_owin)
 fitted_intensities2
 ```
-```{r}
-try_random= mppm(cell ~ 1, hyoertime, random= ~1 | time)
-```
 
-```{r}
-try_pp=as.ppp(D4_ty2$x, D4_ty2$y, d4_owin, marks=fitted_intensities$trend[[1]])
-```
+
+
 
 
 ```{r}
-K_functions <-  Kinhom(fitted_intensities2, ratio= TRUE)
+K_functions4 <-  Kinhom(D4_ty2_owin, ratio= TRUE)
+K_functions7 <-  Kinhom(D7_ty2p, ratio= TRUE)
+K_functions10 <-  Kinhom(D10_ty2p, ratio= TRUE)
+K_functions14 <-  Kinhom(D14_ty2p, ratio= TRUE)
 ```
 
+```{r}
+Kcomb=pool(K_functions4,K_functions7,K_functions10,K_functions14)
+```
+
+```{r}
+try=lgcp.estK(Kcomb)
+```
+
+```{r}
+try
+```
 
 ## Cox Spatial Temporal Model
 prepare data
@@ -358,16 +385,8 @@ plot(temppx)
 
 ```{r}
 library("stpp")
-data("fmd")
 ```
-```{r}
-data("northcumbria")
-fmd <- as.3dpoints(fmd)
-plot(fmd, s.region = northcumbria)
-```
-```{r}
-animation(fmd, runtime = 10, cex = 0.5, s.region = northcumbria)
-```
+
 
 
 ```{r}
