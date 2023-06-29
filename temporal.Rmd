@@ -316,8 +316,13 @@ plot(hyoertime, quote(plot(density(cell), main=time)))
 ```
 
 ```{r}
-try=mppm(cell~time, hyoertime)
+try=mppm(cell~time+x+y, hyoertime)
 ```
+
+```{r}
+try
+```
+
 test the model
 ```{r}
 cdf.test.mppm(try, "y")
