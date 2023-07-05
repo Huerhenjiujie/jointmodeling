@@ -322,10 +322,13 @@ try=mppm(cell~time+x+y, hyoertime)
 ```{r}
 try
 ```
+```{r}
+diagnose.mppm(try)
+```
 
 test the model
 ```{r}
-cdf.test.mppm(try, "y")
+cdf.test.mppm(try, "x")
 ```
 
 
@@ -334,17 +337,32 @@ plot.mppm(try, main="The ty2 cell", cif=TRUE,
                 how="image")
 ```
 
-```{r}
-lurking(try, covariate = expression(time))
-```
+
 
 
 ```{r}
 sub_time=subfits(try)
 ```
+```{r}
+diagnose.ppm(sub_time$`1`)
+```
+```{r}
+qqplot.ppm(sub_time$`1`)
+```
+
+```{r}
+diagnose.ppm(sub_time$`4`)
+qqplot.ppm(sub_time$`4`)
+```
+
+```{r}
+anova.mppm(try, test="Chi")
+```
+
 
 ```{r}
 fitted_intensities <- predict.mppm(try)
+fitted_intensities
 ```
 
 ```{r}
