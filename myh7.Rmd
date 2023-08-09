@@ -1,0 +1,96 @@
+---
+title: "MYH7"
+author: "Hening Cui"
+date: "8/6/2023"
+output: pdf_document
+---
+```{r}
+library(tidyverse)
+
+library(Seurat)
+```
+
+
+
+# loading dataset
+```{r}
+load(file= "/Users/cuihening/Desktop/shikun/seurat/robjs/chicken_visium.4.Robj")
+```
+
+```{r}
+myh7<- FetchData(object=chicken_visium,vars=c('MYH7','ident', 'orig.ident')) 
+myh7=cbind(cell = rownames(myh7), myh7) %>% 
+  dplyr::rename(time = orig.ident) 
+myh7$is2=as.factor(ifelse(myh7$ident==2,1,0))
+```
+
+
+The function to get coordinate
+```{r}
+getcoor=function(slice, time){
+coords <- GetTissueCoordinates(chicken_visium, image= slice)
+colnames(coords) <- c("x", "y")
+coords <- cbind(cell = rownames(coords),coords)
+coords$time = time
+return(coords)
+}
+```
+
+
+```{r}
+coords_d4 = getcoor('slice1','D4')
+coords_d10 = getcoor('slice1_D10-C1','D10')
+coords_d7 = getcoor('slice1_D7-B1','D7')
+coords_d14 = getcoor('slice1_D14-D1','D14')
+```
+
+Joint table to get the expression with location
+
+
+```{r}
+D4 = myh7 %>% 
+  filter(time=='D4') %>% 
+  merge(coords_d4, by="cell")  %>% 
+  filter(x >= 375 &  y>=265 )  %>% 
+  filter(!(x >= 375 & x < 385 & y < 300)) %>% 
+  dplyr::rename(Y=x, X=y) %>% 
+  dplyr::rename(x=X, y=Y) %>% 
+  mutate(x=x-138, y=y-208) %>% 
+  mutate(time=4)
+summary(D4)
+```
+
+```{r}
+D7 = myh7 %>% 
+  filter(time=='D7') %>% 
+  merge(coords_d7, by="cell")  %>% 
+  filter(x <= 255 &  y>=285 )  %>% 
+  dplyr::rename(Y=x, X=y) %>% 
+  dplyr::rename(x=X, y=Y) %>% 
+  mutate(x=x-150, y=300-y) %>% 
+  mutate(time=7)
+summary(D7)
+```
+
+```{r}
+D10 = myh7 %>% 
+  filter(time=='D10') %>% 
+  merge(coords_d10, by="cell")  %>% 
+  filter(y < 340)  %>% 
+  dplyr::rename(Y=x, X=y) %>% 
+  dplyr::rename(x=X, y=Y) %>% 
+  mutate(x=x-67, y=y-128) %>% 
+  mutate(time=10)
+summary(D10)
+```
+```{r}
+D14 = myh7 %>% 
+  filter(time=='D14') %>% 
+  merge(coords_d14, by="cell")  %>% 
+  dplyr::rename(Y=x, X=y) %>% 
+  dplyr::rename(x=X, y=Y) %>% 
+  mutate(x=x-144, y=y-78) %>% 
+  mutate(time=14)
+summary(D14)
+```
+

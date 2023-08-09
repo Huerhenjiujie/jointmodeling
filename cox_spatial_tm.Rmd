@@ -39,8 +39,7 @@ coords_d4 <- cbind(cell = rownames(coords_d4),coords_d4)
 ```
 
 
-
-D4 dataset and 
+D4 dataset and get coordiate
 ```{r}
 D4 = tmsb4x %>% 
   filter(orig.ident=='D4') %>% 
@@ -66,19 +65,18 @@ plot(density(D4_samppp))
 ```
 
 
-
-
-
 ```{r}
 hist(marks(D4_samppp), main="D4-Distribution of TMSB4X exprssion")
 ```
 
+try to find the window size
 ```{r}
 D4_sampty =  ppp(X,Y,c(380, 484),c(268, 386),marks = D4$ident)
 D4cell_type= split(D4_sampty)
 D4_ty2 = D4cell_type$'2'
 ```
 
+Get the type 2 cell and fit with LMM model
 ```{r}
 D4_ty2df = D4 %>% filter(ident==2)
 LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D4_ty2df, method='REML')
@@ -115,8 +113,6 @@ plot(D4_ty, main="D4 cell type distribution")
 ```
 
 
-
-
 Different cell type density plot
 
 ```{r}
@@ -134,7 +130,6 @@ D4_ty2 = D4cell_type$'2'
 ```
 
 
-
 Fitting LMM model for the TMSB4
 ```{r}
 D4_ty2df = D4 %>% filter(ident==2)
@@ -142,7 +137,7 @@ LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D4_ty2df, method='REML')
 summary(LMM)
 ```
 
-Fitting Cox spatial model
+Put the lmm  in to Fitting Cox spatial model
 
 ```{r}
 cf=coef(LMM)
@@ -227,6 +222,8 @@ D7_samppp =  ppp(X,Y,c(255, 480),c(267,470), marks=D7_ty2["TMSB4X"])
 ```{r}
 plot(unmark(D7_samppp))
 ```
+
+The lmm model for all time point
 ```{r}
 LMM <- lme (TMSB4X ~ x+y, random = ~1 | cell,  data = D7_ty2, method='REML')
 summary(LMM)

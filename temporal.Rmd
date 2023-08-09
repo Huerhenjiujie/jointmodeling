@@ -68,52 +68,57 @@ return(ppppro)
 
 ## D4
 
+All day4 sample
+
 ```{r}
 D4 = tmsb4x %>% 
   filter(time=='D4') %>% 
+  merge(coords_d4, by="cell")
+
+D4_samppp = ppp(D4$x,D4$y, c(0, 450),c(0,550),marks=D4$is2)
+
+plot(D4_samppp)
+```
+
+only sample with type2
+
+
+```{r}
+#create dataset
+D4 = tmsb4x %>% 
+  filter(time=='D4') %>% 
   merge(coords_d4, by="cell")  %>% 
-  filter(x >= 385 &  y>=267 )  %>% 
-  rename(Y=x, X=y) %>% 
-  rename(x=X, y=Y) %>% 
+  filter(x >= 375 &  y>=265 )  %>% 
+  filter(!(x >= 375 & x < 385 & y < 300)) %>% 
+  dplyr::rename(Y=x, X=y) %>% 
+  dplyr::rename(x=X, y=Y) %>% 
   mutate(x=x-138, y=y-208) %>% 
   mutate(time=4)
 summary(D4)
-```
 
-```{r}
+#generate window
 xym= D4 %>% select(c("x","y")) 
 pts <- st_as_sf(xym, coords=c('x','y'))
 conc <- concaveman(pts)
 ggplot() +
   geom_sf(data = conc, fill = NA)
-```
 
-
-
-```{r}
 d4_owin= as.owin(as_Spatial(conc))
 plot(d4_owin)
-```
 
-
-```{r}
-D4_samppp =  ppp(D4$x,D4$y, c(0, 450),c(0,550), marks=D4$is2)
-```
-
-```{r}
+#creat ppp project
 D4_samppp =  ppp(D4$x,D4$y, window = d4_owin, marks=D4$is2)
 ```
 
+For type 2 cell
 ```{r}
 D4_ty2=D4 %>% 
   filter(is2==1)
-D4_ty2p=ppp(D4_ty2$x,D4_ty2$y, c(0, 450),c(0,550))
-```
 
-```{r}
 D4_ty2_owin=ppp(D4_ty2$x,D4_ty2$y, window = d4_owin)
 ```
 
+EDA
 ```{r}
 par(mfrow=c(1,2))
 plot(D4_samppp, pch = 20,show.window=FALSE,cols=c("blue", "green"), legend=FALSE, main="D4 point",markscale = 0.1)
@@ -121,47 +126,41 @@ plot(density(D4_ty2_owin), main="D4 density")
 ```
 
 ```{r}
-pixel=pixellate.ppp(D4_ty2_owin,fractional=TRUE)
+pixel=pixellate.ppp(D4_ty2_owin,eps=c(5,5),fractional=TRUE)
 plot(pixel)
 ```
 
-```{r}
-plot(as.im(density(D4_ty2_owin), fractional=TRUE))
-```
 
 
 
 
-```{r, fig.height=10, fig.width=12}
-par(mfrow=c(1,2))
-plot(D4_samppp, pch = 20,show.window=FALSE,cols=c("blue", "green"), legend=FALSE, main="D4 point",markscale = 0.1)
-plot(density(D4_ty2p), main="D4 density")
-```
-
-```{r}
-D4_fit =  kppm(D4_ty2p ~1, "LGCP")
-D4_fit
-```
-
-```{r}
-D4_fit =  kppm(D4_ty2_owin ~1, "LGCP")
-D4_fit
-```
-
-```{r}
-plot(predict.dppm(D4_fit))
-```
 
 ### D7
+
+
+All day7 sample
+
+```{r}
+D7 = tmsb4x %>% 
+  filter(time=='D7') %>% 
+  merge(coords_d7, by="cell")
+
+summary(D7)
+
+D7_samppp = ppp(D7$x,D7$y, c(0, 450),c(0,550),marks=D7$is2)
+
+plot(D7_samppp)
+```
+extract one sample
 
 ```{r}
 D7 = tmsb4x %>% 
   filter(time=='D7') %>% 
   merge(coords_d7, by="cell")  %>% 
-  filter(x >= 255 &  y>=267 )  %>% 
+  filter(x <= 255 &  y>=285 )  %>% 
   rename(Y=x, X=y) %>% 
   rename(x=X, y=Y) %>% 
-  mutate(x=x-150, y=y-152) %>% 
+  mutate(x=x-150, y=300-y) %>% 
   mutate(time=7)
 summary(D7)
 ```
@@ -174,9 +173,13 @@ ggplot() +
   geom_sf(data = conc, fill = NA)
 ```
 
+
+
 ```{r}
 d7_owin= as.owin(as_Spatial(conc))
 plot(d7_owin)
+D7_samppp =  ppp(D7$x,D7$y, d7_owin , marks=D7$is2)
+plot(D7_samppp)
 ```
 ```{r}
 D7_samppp =  ppp(D7$x,D7$y, window = d7_owin, marks=D7$is2)
@@ -193,24 +196,40 @@ par(mfrow=c(1,2))
 plot(D7_samppp, pch = 20,show.window=FALSE, cols=c("blue", "green"), legend=FALSE, main="D7 point")
 plot(density(D7_ty2p), main="D7 density")
 ```
+
 ```{r}
-D7_fit =  kppm(D7_ty2p ~1, "LGCP")
-D7_fit
+pixel=pixellate.ppp(D7_ty2p,eps=c(4,4),fractional=TRUE)
+plot(pixel)
 ```
 
 
+
 ### D10
+
+All D10 sample
+```{r}
+D10 = tmsb4x %>% 
+  filter(time=='D10') %>% 
+  merge(coords_d10, by="cell")
+
+D10_samppp =ppp(D10$x,D10$y, c(0, 550),c(0,550), marks=D10$is2)
+plot(D10_samppp)
+```
+
+Try to extract one sample
 
 ```{r}
 D10 = tmsb4x %>% 
   filter(time=='D10') %>% 
   merge(coords_d10, by="cell")  %>% 
-  filter(x >= 193 &  y>=320)  %>% 
+  filter(y < 340)  %>% 
   rename(Y=x, X=y) %>% 
   rename(x=X, y=Y) %>% 
-  mutate(x=x-217, y=y-128) %>% 
+  mutate(x=x-67, y=y-128) %>% 
   mutate(time=10)
 summary(D10)
+D10_samppp =ppp(D10$x,D10$y, c(0, 450),c(0,550), marks=D10$is2)
+plot(D10_samppp)
 ```
 
 ```{r}
@@ -293,6 +312,19 @@ D14_fit =  kppm(D14_ty2p ~1, "LGCP")
 D14_fit
 ```
 
+## LGCP model
+try fit LGCP model
+
+```{r}
+D4_fit =  kppm(D4_ty2_owin ~x+y, "LGCP")
+D4_fit
+```
+
+
+```{r}
+plot(predict.dppm(D4_fit))
+```
+
 ## Spatstat replicate model
 Create the list of all point
 ```{r}
@@ -309,43 +341,68 @@ Turn list into hyperframe
 ```{r}
 hyoertime <- hyperframe(cell=time_ty2)
 hyoertime$time=c(4,7,10,14)
+hyoertime$sub=c(1,1,1,1)
 ```
 
 ```{r}
-plot(hyoertime, quote(plot(density(cell), main=time)))
+plot(hyoertime, quote(plot(density(cell), main=time)), halign=TRUE, valign=TRUE, equal.scale=TRUE, equal.ribbon=TRUE, main = "")
+title(main="The density of Type 2 cell")
 ```
 
 ```{r}
-try=mppm(cell~time+x+y, hyoertime)
+try_po=mppm(cell~time+x+ y + x*y + x*time+ y*time + I(x^2)+I(y^2), hyoertime)
+try_po
+plot(try_po, main="The ty2 cell polynomial",show.window=FALSE, cif=TRUE,halign=TRUE, valign=TRUE,how="image", equal.ribbon=TRUE, cex=3)
 ```
 
-```{r}
-try
-```
-```{r}
-diagnose.mppm(try)
-```
+
+
 
 test the model
 ```{r}
-cdf.test.mppm(try, "x")
-```
-
-
-```{r}
-plot.mppm(try, main="The ty2 cell", cif=TRUE,
-                how="image")
+cdf.test.mppm(try_po, "x")
 ```
 
 
 
-
 ```{r}
-sub_time=subfits(try)
+sub_time=subfits(try_po)
 ```
 ```{r}
 diagnose.ppm(sub_time$`1`)
 ```
+Point patterns $y(i), i = 1, \ldots, n$ are independent, conditional on the covariates and the random effects.
+
+$$\lambda_i(u; \beta, \gamma) = \exp\left[B_i(u) + \beta^T x_i(u) + \gamma^T z_i(u)\right]$$
+where:
+- $\beta$ is a vector of fixed coefficients, i.e., $\beta = (\beta_1, \beta_2, \ldots, \beta_p)^T$
+- $\gamma$ is a vector of random coefficients, i.e., $\gamma = (\gamma_1, \gamma_2, \ldots, \gamma_p)^T$
+- $B_i(u)$ is a known baseline function ---optional (not inlcude)
+- $x_i(u) = (x_{i1}(u), \ldots, x_{ip}(u))^T$ is a vector of covariates --time spatial
+- $z_i(u) = (z_i(u), \ldots, z_i(u))^T$ is a vector of random effects --- x vs z  sample z distribution of z
+- $1_p$ denotes a vector of ones with length $p$
+
+$$\log L(\beta, \gamma) = \sum_{i=1}^{n} \sum_{y_j \in y(i)} \left[ B(i)(y_j) + \beta^T x(i)(y_j) + \gamma^T z(i)(y_j) \right] - \int_W \exp\left[ B(i)(u) + \beta^T x(i)(u) + \gamma^T z(i)(u) \right] \, du$$
+mixed model condition gene|x spatial fx|s f(s) ----fs|x(code calculate)
+
+```{r}
+res <- residuals(try_po, type="Pearson")
+smor <- with(hyperframe(res=res), Smooth(res, sigma=4))
+```
+
+contains the point process residuals for the corresponding point pattern dataset.
+```{r}
+plot(smor, equal.ribbon=TRUE)
+```
+
+```{r}
+res <- residuals(try, type="raw")
+df <- as.data.frame(hyoertime, warn=FALSE)
+df$resid <- sapply(res, integral.msr)
+plot(resid ~ time, df)
+```
+
+
 ```{r}
 qqplot.ppm(sub_time$`1`)
 ```
@@ -356,19 +413,54 @@ qqplot.ppm(sub_time$`4`)
 ```
 
 ```{r}
-anova.mppm(try, test="Chi")
+anova.mppm(try_po, test="Chi")
+```
+
+
+## Extract the predicted value
+```{r}
+# Create an empty list to store predicted values
+predicted_values <- list()
+
+# Loop through the point patterns in the hyperframe
+for (i in 1:nrow(hyoertime)) {
+  # Extract the point pattern
+  pp <- hyoertime$cell[[i]]
+  
+  # Predict the intensity of the point pattern using the fitted model
+  intensity <- predict(try_po, newdata=hyperframe(cell=pp))
+  
+  # Store the predicted intensity in the list
+  predicted_values[[i]] <- intensity
+}
+
+predicted_dfs <- lapply(predicted_values, as.data.frame)
+
+```
+
+```{r}
+predicd4=as.data.frame.im(fitted_intensities$cif[[1]])
+predicd7=as.data.frame.im(fitted_intensities$cif[[2]])
+predicd10=as.data.frame.im(fitted_intensities$cif[[3]])
+predicd14=as.data.frame.im(fitted_intensities$cif[[4]])
+```
+
+```{r}
+tmsbpre=predicd4 %>% 
+  left_join(D4, by)
+```
+
+```{r}
+lmm_model <- readRDS("lmm_model.rds")
 ```
 
 
 ```{r}
-fitted_intensities <- predict.mppm(try)
+fitted_intensities <- predict.mppm(try_po, locations=D4_ty2_owin)
 fitted_intensities
 ```
 
-```{r}
-fitted_intensities2 <- predict.mppm(try,locations = D4_ty2_owin)
-fitted_intensities2
-```
+
 
 
 
@@ -391,62 +483,6 @@ try=lgcp.estK(Kcomb)
 
 ```{r}
 try
-```
-
-## Cox Spatial Temporal Model
-prepare data
-```{r}
-temp= rbind(D4, D7, D10, D14) %>% 
-  filter(ident==2) %>% 
-  select(x,y,time, is2)
-```
-
-```{r}
-temppx=ppx(temp)
-plot(temppx)
-```
-
-```{r}
-library("stpp")
-```
-
-
-
-```{r}
-tlim=c(0,14)
-```
-
-```{r}
-xyt <- stppp(list(data = temp, tlim = tlim, window = owin(c(0,450),c(0,550))))
-```
-
-```{r}
-xyt <- integerise(xyt)
-xyt
-```
-
-```{r}
-den <- lambdaEst(xyt, axes = TRUE)
-plot(den)
-```
-```{r}
-sar <- spatialAtRisk(den)
-sar
-plot(sar)
-```
-```{r}
-mut <- muEst(xyt)
-mut
-plot(mut)
-```
-
-```{r}
-gin <- ginhomAverage(xyt, spatial.intensity = sar, temporal.intensity = mut)
-plot(gin)
-```
-
-```{r}
-kin <- KinhomAverage(xyt, spatial.intensity = sar, temporal.intensity = mut)
 ```
 
 
